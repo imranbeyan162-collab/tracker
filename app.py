@@ -60,12 +60,16 @@ DEFAULT_MASTER_PASSWORDS = [
 @app.before_request
 def require_authentication_gate():
     """Gatekeeper: Blocks all unauthenticated traffic behind the login portal."""
-    allowed_paths = ("/login", "/favicon.ico", "/manifest.json", "/sw.js", "/api/index")
-    if request.path.startswith("/static/") or request.path in allowed_paths:
+    if request.endpoint in ("login", "static") or request.path.startswith(("/login", "/static/")):
+        return None
+
+    allowed_paths = ("/login", "/login/", "/favicon.ico", "/manifest.json", "/sw.js", "/api/index", "/api/index/")
+    if request.path in allowed_paths:
         return None
 
     if not session.get("logged_in_user"):
         return redirect(url_for("login"))
+
 
 
 
