@@ -1,0 +1,24 @@
+{
+  "name": "Imran & Mikiyas Venture Management",
+  "short_name": "VentureTracker",
+  "description": "Private venture tracking, goals architecture, and financial ledger for Imran & Mikiyas.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b0f17",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

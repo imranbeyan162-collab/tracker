@@ -4,56 +4,202 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Security Verification - Imran & Mikiyas Management</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    :root {
+      --bg-primary: #0b0f17;
+      --bg-secondary: #111827;
+      --bg-card: #141d2e;
+      --border-color: #1e293b;
+      --border-focus: #6366f1;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-subtle: #64748b;
+      --accent-indigo: #6366f1;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 50% 20%, #151f32 0%, #080c14 100%);
+      color: #f8fafc;
+      padding: 1.5rem;
+    }
+    .portal-box {
+      max-width: 420px;
+      width: 100%;
+    }
+    .portal-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .portal-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 50px;
+      border-radius: 14px;
+      background: rgba(99, 102, 241, 0.14);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      margin-bottom: 1.15rem;
+    }
+    .portal-badge-inner {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background: #6366f1;
+      box-shadow: 0 0 12px #6366f1;
+    }
+    .portal-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .portal-subtitle {
+      font-size: 0.88rem;
+      color: #94a3b8;
+      margin-top: 0.35rem;
+    }
+    .portal-card {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      padding: 2rem;
+    }
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+    .form-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .form-control {
+      width: 100%;
+      display: block;
+      padding: 0.7rem 0.95rem;
+      font-size: 0.92rem;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      background-color: #0b0f19;
+      color: #ffffff;
+      font-family: inherit;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+    select.form-control {
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 0.85rem center;
+      background-size: 1rem;
+      padding-right: 2.5rem;
+      cursor: pointer;
+    }
+    .btn-submit {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.75rem 1rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      border-radius: 8px;
+      border: none;
+      background: #6366f1;
+      color: #ffffff;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.05s ease;
+      margin-top: 0.5rem;
+    }
+    .btn-submit:hover {
+      background: #4f46e5;
+    }
+    .btn-submit:active {
+      transform: scale(0.99);
+    }
+    .alert-box {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 1.25rem;
+      border: 1px solid rgba(244, 63, 94, 0.4);
+      background: rgba(244, 63, 94, 0.12);
+      color: #fb7185;
+    }
+    .portal-footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.75rem;
+      color: #64748b;
+      letter-spacing: 0.02em;
+    }
+  </style>
 </head>
-<body style="display:flex; align-items:center; justify-content:center; min-height:100vh; background: radial-gradient(circle at 50% 20%, #151f32 0%, #080c14 100%);">
+<body>
 
-  <div style="max-width: 420px; width: 100%; padding: 1.5rem;">
-    <!-- Logo & Security Header -->
-    <div style="text-align:center; margin-bottom: 2rem;">
-      <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:rgba(99, 102, 241, 0.12); border:1px solid rgba(99, 102, 241, 0.3); margin-bottom:1rem;">
-        <div style="width:14px; height:14px; border-radius:3px; background:var(--accent-indigo);"></div>
+  <div class="portal-box">
+    <!-- Header -->
+    <div class="portal-header">
+      <div class="portal-badge">
+        <div class="portal-badge-inner"></div>
       </div>
-      <h1 style="font-size:1.45rem; font-weight:700; color:#ffffff; letter-spacing:-0.02em;">Venture Portal</h1>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.35rem;">Private Workspace for Imran &amp; Mikiyas</p>
+      <h1 class="portal-title">Venture Portal</h1>
+      <p class="portal-subtitle">Private Workspace for Imran &amp; Mikiyas</p>
     </div>
 
-    <!-- Flash Alert -->
+    <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div style="margin-bottom:1.25rem;">
-          {% for category, message in messages %}
-            <div class="alert alert-{{ category }}" style="font-size:0.85rem; padding:0.65rem 1rem;">
-              <span>{{ message }}</span>
-            </div>
-          {% endfor %}
-        </div>
+        {% for category, message in messages %}
+          <div class="alert-box">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
       {% endif %}
     {% endwith %}
 
-    <!-- Gatekeeper Login Card -->
-    <div class="card" style="background:#111827; border-color:#1e293b; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); padding:1.75rem;">
+    <!-- Login Card -->
+    <div class="portal-card">
       <form action="{{ url_for('login') }}" method="POST">
         <div class="form-group">
-          <label class="form-label">Partner Identity</label>
-          <select name="partner_id" class="form-select" required>
+          <label class="form-label" for="partner_id">Partner Identity</label>
+          <select id="partner_id" name="partner_id" class="form-control" required>
             <option value="imran">Imran</option>
             <option value="mikiyas">Mikiyas</option>
           </select>
         </div>
 
-        <div class="form-group" style="margin-bottom:1.5rem;">
-          <label class="form-label">Access Password</label>
-          <input type="password" name="pin" class="form-input" placeholder="Enter private password" required autofocus>
+        <div class="form-group">
+          <label class="form-label" for="pin">Access Password</label>
+          <input id="pin" type="password" name="pin" class="form-control" placeholder="Enter private password" required autofocus autocomplete="current-password">
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width:100%; padding:0.65rem 1rem; font-size:0.9rem;">
+        <button type="submit" class="btn-submit">
           Authenticate &amp; Unlock Workspace
         </button>
       </form>
     </div>
 
-    <div style="text-align:center; margin-top:2rem; font-size:0.75rem; color:var(--text-subtle);">
+    <div class="portal-footer">
       End-to-End Encrypted Session &bull; Private Venture Records
     </div>
   </div>

@@ -112,10 +112,16 @@ def manifest():
 def service_worker():
     return send_from_directory("static", "sw.js", mimetype="application/javascript")
 
+@app.route("/static/<path:filename>")
+def serve_static_asset(filename):
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+    return send_from_directory(static_dir, filename)
+
 @app.route("/static/uploads/proofs/<path:filename>")
 @app.route("/uploads/proofs/<path:filename>")
 def serve_proof_upload(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
 
 
 
