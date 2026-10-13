@@ -1,0 +1,692 @@
+{% extends "base.html" %}
+
+{% block title %}{{ partner.name }} Money Tracker - Partner Tracker{% endblock %}
+
+{% block content %}
+<!-- Partner Sub-Navigation Tabs & Quick Actions -->
+<div class="partner-tabs">
+  <div class="tab-group">
+    <a href="{{ url_for('money_view', partner_id='partner_a') }}" class="tab-btn {% if partner.id == 'partner_a' %}active{% endif %}">
+      Partner A's Money
+    </a>
+    <a href="{{ url_for('money_view', partner_id='partner_b') }}" class="tab-btn {% if partner.id == 'partner_b' %}active{% endif %}">
+      Partner B's Money
+    </a>
+    <a href="{{ url_for('combined_view') }}" class="tab-btn">
+      🌐 Shared Combined
+    </a>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+    <a href="{{ url_for('export_csv', user_id=partner.id) }}" class="btn btn-outline btn-sm">
+      📥 Export to CSV
+    </a>
+    {% if can_edit %}
+      <button class="btn btn-primary btn-sm" data-open-modal="addTransactionModal">
+        ➕ Add Money Entry
+      </button>
+    {% else %}
+      <button class="btn btn-secondary btn-sm" onclick="promptPartnerLogin('{{ partner.id }}')">
+        🔒 Log in to Add / Edit
+      </button>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Header info -->
+<div style="margin-bottom: 1.25rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+  <div>
+    <h1 style="font-size:1.6rem; font-weight:800;">
+      💰 {{ partner.name }}'s Financial Hub
+    </h1>
+    <p style="font-size:0.9rem; color:var(--neutral-gray);">
+      {% if can_edit %}
+        <span style="color:var(--income-green); font-weight:600;">✓ Full Editing Access</span> — All changes are saved automatically.
+      {% else %}
+        <span style="color:var(--neutral-gray);">👀 Read-Only Mode</span> — Log in with {{ partner.name }}'s PIN code to add or edit entries.
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+<!-- Running Totals Metric Cards -->
+<div class="grid-4">
+  <div class="card stat-card income">
+    <div class="stat-label">Money Received</div>
+    <div class="stat-value green">${{ "%.2f"|format(fin_totals.income) }}</div>
+    <div style="font-size:0.78rem; color:var(--neutral-gray); margin-top:0.25rem;">Total recorded income</div>
+  </div>
+
+  <div class="card stat-card expense">
+    <div class="stat-label">Money Spent</div>
+    <div class="stat-value red">${{ "%.2f"|format(fin_totals.expense) }}</div>
+    <div style="font-size:0.78rem; color:var(--neutral-gray); margin-top:0.25rem;">Total business expenses</div>
+  </div>
+
+  <div class="card stat-card savings">
+    <div class="stat-label">Money Saved</div>
+    <div class="stat-value blue">${{ "%.2f"|format(fin_totals.savings) }}</div>
+    <div style="font-size:0.78rem; color:var(--neutral-gray); margin-top:0.25rem;">Transferred to savings</div>
+  </div>
+
+  <div class="card stat-card investment">
+    <div class="stat-label">Money Invested</div>
+    <div class="stat-value teal">${{ "%.2f"|format(fin_totals.investments) }}</div>
+    <div style="font-size:0.78rem; color:var(--neutral-gray); margin-top:0.25rem;">Equipment, stock, assets</div>
+  </div>
+</div>
+
+<!-- Savings Goal Progress Card -->
+<div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #ffffff, #f0f7ff); border-left: 4px solid var(--savings-blue);">
+  <div class="card-header" style="margin-bottom:0.5rem;">
+    <div class="card-title">
+      🎯 Savings Goal: {{ partner.savings_goal_name }}
+    </div>
+    <div>
+      {% if can_edit %}
+        <button class="btn btn-outline btn-sm" data-open-modal="editSavingsGoalModal">✏️ Update Goal</button>
+      {% endif %}
+    </div>
+  </div>
+  <div style="display:flex; justify-content:space-between; font-size:0.95rem; font-weight:600; margin-bottom:0.4rem;">
+    <span>Saved: <strong style="color:var(--savings-blue);">${{ "%.2f"|format(fin_totals.savings) }}</strong></span>
+    <span>Target: <strong>${{ "%.2f"|format(partner.savings_goal_target) }}</strong></span>
+    <span>Progress: <strong>{{ savings_pct }}%</strong></span>
+  </div>
+  <div class="progress-container" style="height: 16px;">
+    <div class="progress-bar" style="width: {{ savings_pct }}%;"></div>
+  </div>
+  <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.4rem;">
+    {% if fin_totals.savings >= partner.savings_goal_target %}
+      🎉 <strong>Goal Achieved!</strong> You have reached or exceeded your target savings amount.
+    {% else %}
+      ${{ "%.2f"|format(partner.savings_goal_target - fin_totals.savings) }} remaining to hit your target goal.
+    {% endif %}
+  </div>
+</div>
+
+<!-- Monthly Charts Section (Income vs Expenses Bar Chart & Category Pie Chart) -->
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📊 Monthly Income vs Expenses</div>
+    </div>
+    <div style="position:relative; height:240px;">
+      <canvas id="monthlyBarChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🥧 Expense Categories Breakdown</div>
+    </div>
+    <div style="position:relative; height:240px;">
+      <canvas id="categoryPieChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Recurring Bills Section -->
+<div class="card" style="margin-bottom: 1.5rem;">
+  <div class="card-header">
+    <div class="card-title">
+      🧾 Bills &amp; Subscriptions
+    </div>
+    <div>
+      {% if can_edit %}
+        <button class="btn btn-outline btn-sm" data-open-modal="addBillModal">➕ Add Bill</button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if bills %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Bill Name</th>
+            <th>Amount</th>
+            <th>Due Date</th>
+            <th>Interval</th>
+            {% if can_edit %}<th style="text-align:right;">Actions</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for bill in bills %}
+            {% set is_overdue = (not bill.is_paid and bill.due_date < today_str) %}
+            <tr class="{% if is_overdue %}overdue-row{% endif %}">
+              <td>
+                {% if can_edit %}
+                  <form action="{{ url_for('toggle_bill_paid', bill_id=bill.id) }}" method="POST" style="display:inline;">
+                    <input type="hidden" name="partner_id" value="{{ partner.id }}">
+                    <button type="submit" style="background:none; border:none; cursor:pointer;" title="Click to toggle status">
+                      {% if bill.is_paid %}
+                        <span class="badge badge-paid">✓ Paid</span>
+                      {% elif is_overdue %}
+                        <span class="badge badge-overdue">⚠️ Overdue!</span>
+                      {% else %}
+                        <span class="badge badge-unpaid">⏳ Unpaid</span>
+                      {% endif %}
+                    </button>
+                  </form>
+                {% else %}
+                  {% if bill.is_paid %}
+                    <span class="badge badge-paid">✓ Paid</span>
+                  {% elif is_overdue %}
+                    <span class="badge badge-overdue">⚠️ Overdue!</span>
+                  {% else %}
+                    <span class="badge badge-unpaid">⏳ Unpaid</span>
+                  {% endif %}
+                {% endif %}
+              </td>
+              <td>
+                <strong>{{ bill.name }}</strong>
+                {% if is_overdue %}
+                  <span style="font-size:0.75rem; color:#dc2626; margin-left:0.35rem; font-weight:700;">(ACTION NEEDED)</span>
+                {% endif %}
+              </td>
+              <td style="font-weight:700; color:var(--expense-red);">${{ "%.2f"|format(bill.amount) }}</td>
+              <td>{{ bill.due_date }}</td>
+              <td><span class="badge" style="background:#e2e8f0; color:#334155;">{{ bill.recurring_interval }}</span></td>
+              {% if can_edit %}
+                <td style="text-align:right;">
+                  <form action="{{ url_for('delete_bill', bill_id=bill.id) }}" method="POST" style="display:inline;">
+                    <input type="hidden" name="partner_id" value="{{ partner.id }}">
+                    <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" data-confirm-msg="Delete this bill?">🗑️</button>
+                  </form>
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="color:var(--neutral-gray); font-size:0.9rem; text-align:center; padding:1.5rem 0;">
+      No recurring bills added yet.
+    </p>
+  {% endif %}
+</div>
+
+<!-- Investments Section -->
+<div class="card" style="margin-bottom: 1.5rem;">
+  <div class="card-header">
+    <div class="card-title">
+      📈 Investments &amp; Assets
+    </div>
+    <div>
+      {% if can_edit %}
+        <button class="btn btn-outline btn-sm" data-open-modal="addInvestmentModal">➕ Add Asset</button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if investments %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Asset / Investment</th>
+            <th>Amount Put In</th>
+            <th>Current Value</th>
+            <th>Gain / Loss ($)</th>
+            <th>ROI (%)</th>
+            <th>Date</th>
+            {% if can_edit %}<th style="text-align:right;">Actions</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for inv in investments %}
+            {% set gain = inv.current_value - inv.amount_invested %}
+            {% set roi = (gain / inv.amount_invested * 100) if inv.amount_invested > 0 else 0 %}
+            <tr>
+              <td>
+                <strong>{{ inv.asset_name }}</strong>
+                {% if inv.notes %}
+                  <div style="font-size:0.75rem; color:var(--neutral-gray);">{{ inv.notes }}</div>
+                {% endif %}
+              </td>
+              <td>${{ "%.2f"|format(inv.amount_invested) }}</td>
+              <td style="font-weight:700;">${{ "%.2f"|format(inv.current_value) }}</td>
+              <td style="font-weight:700; color:{% if gain >= 0 %}var(--income-green){% else %}var(--expense-red){% endif %};">
+                {% if gain >= 0 %}+{% endif %}${{ "%.2f"|format(gain) }}
+              </td>
+              <td>
+                <span class="badge {% if roi >= 0 %}badge-paid{% else %}badge-unpaid{% endif %}">
+                  {% if roi >= 0 %}+{% endif %}{{ "%.1f"|format(roi) }}%
+                </span>
+              </td>
+              <td>{{ inv.purchase_date }}</td>
+              {% if can_edit %}
+                <td style="text-align:right; white-space:nowrap;">
+                  <button type="button" class="btn btn-secondary btn-sm" 
+                          onclick="openEditInvestmentModal({{ inv.id }}, '{{ inv.asset_name|escape }}', {{ inv.amount_invested }}, {{ inv.current_value }}, '{{ inv.notes|default('')|escape }}')">
+                    ✏️ Edit
+                  </button>
+                  <form action="{{ url_for('delete_investment', inv_id=inv.id) }}" method="POST" style="display:inline;">
+                    <input type="hidden" name="partner_id" value="{{ partner.id }}">
+                    <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" data-confirm-msg="Delete this investment entry?">🗑️</button>
+                  </form>
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="color:var(--neutral-gray); font-size:0.9rem; text-align:center; padding:1.5rem 0;">
+      No investments or capital assets recorded yet.
+    </p>
+  {% endif %}
+</div>
+
+<!-- Money Entries (Transactions) Log -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      📒 Money Transactions Log
+    </div>
+    <div style="display:flex; gap:0.5rem;">
+      <a href="{{ url_for('export_csv', user_id=partner.id) }}" class="btn btn-outline btn-sm">
+        📥 CSV
+      </a>
+      {% if can_edit %}
+        <button class="btn btn-primary btn-sm" data-open-modal="addTransactionModal">
+          ➕ New Entry
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if transactions %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Category</th>
+            <th>Amount</th>
+            <th>Note</th>
+            {% if can_edit %}<th style="text-align:right;">Actions</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for txn in transactions %}
+            <tr>
+              <td>{{ txn.date }}</td>
+              <td>
+                {% if txn.type == 'Income' %}
+                  <span class="badge badge-income">Income</span>
+                {% elif txn.type == 'Expense' %}
+                  <span class="badge badge-expense">Expense</span>
+                {% elif txn.type == 'Savings' %}
+                  <span class="badge badge-savings">Savings</span>
+                {% else %}
+                  <span class="badge badge-investment">Investment</span>
+                {% endif %}
+              </td>
+              <td><strong>{{ txn.category }}</strong></td>
+              <td style="font-weight:700; color:{% if txn.type == 'Income' %}var(--income-green){% elif txn.type == 'Expense' %}var(--expense-red){% else %}var(--savings-blue){% endif %};">
+                ${{ "%.2f"|format(txn.amount) }}
+              </td>
+              <td style="color:var(--neutral-gray);">{{ txn.note or '-' }}</td>
+              {% if can_edit %}
+                <td style="text-align:right; white-space:nowrap;">
+                  <button type="button" class="btn btn-secondary btn-sm" 
+                          onclick="openEditTransactionModal({{ txn.id }}, '{{ txn.date }}', '{{ txn.type }}', '{{ txn.category|escape }}', {{ txn.amount }}, '{{ txn.currency }}', '{{ txn.note|default('')|escape }}')">
+                    ✏️
+                  </button>
+                  <form action="{{ url_for('delete_transaction', txn_id=txn.id) }}" method="POST" style="display:inline;">
+                    <input type="hidden" name="partner_id" value="{{ partner.id }}">
+                    <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" data-confirm-msg="Delete this transaction?">🗑️</button>
+                  </form>
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="color:var(--neutral-gray); font-size:0.9rem; text-align:center; padding:1.5rem 0;">
+      No money transactions recorded yet. Click "Add Money Entry" to create one.
+    </p>
+  {% endif %}
+</div>
+
+<!-- ================= MODALS ================= -->
+
+{% if can_edit %}
+  <!-- 1. Add Transaction Modal -->
+  <div class="modal-overlay" id="addTransactionModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">➕ Add Money Entry</h3>
+        <button class="modal-close" data-close-modal="addTransactionModal">&times;</button>
+      </div>
+      <form action="{{ url_for('add_transaction') }}" method="POST">
+        <input type="hidden" name="partner_id" value="{{ partner.id }}">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Date *</label>
+              <input type="date" name="date" class="form-input" value="{{ today_str }}" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Type *</label>
+              <select name="type" class="form-select" required>
+                <option value="Income">Income (Money Received)</option>
+                <option value="Expense">Expense (Money Spent)</option>
+                <option value="Savings">Savings (Reserve Stash)</option>
+                <option value="Investment">Investment (Assets/Stock)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Category *</label>
+              <input type="text" name="category" class="form-input" placeholder="e.g. Sales, Supplies, Ads, Client Pay" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Amount ($) *</label>
+              <input type="number" step="0.01" min="0.01" name="amount" class="form-input" placeholder="0.00" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Short Note / Description</label>
+            <input type="text" name="note" class="form-input" placeholder="Optional details (e.g., Client invoice #104)">
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+            <button type="button" class="btn btn-secondary" data-close-modal="addTransactionModal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Entry</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Edit Transaction Modal -->
+  <div class="modal-overlay" id="editTransactionModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">✏️ Edit Money Entry</h3>
+        <button class="modal-close" data-close-modal="editTransactionModal">&times;</button>
+      </div>
+      <form action="{{ url_for('edit_transaction') }}" method="POST">
+        <input type="hidden" name="partner_id" value="{{ partner.id }}">
+        <input type="hidden" name="txn_id" id="edit_txn_id">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Date *</label>
+              <input type="date" name="date" id="edit_txn_date" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Type *</label>
+              <select name="type" id="edit_txn_type" class="form-select" required>
+                <option value="Income">Income</option>
+                <option value="Expense">Expense</option>
+                <option value="Savings">Savings</option>
+                <option value="Investment">Investment</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Category *</label>
+              <input type="text" name="category" id="edit_txn_category" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Amount ($) *</label>
+              <input type="number" step="0.01" min="0.01" name="amount" id="edit_txn_amount" class="form-input" required>
+              <input type="hidden" name="currency" id="edit_txn_currency" value="$">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Short Note / Description</label>
+            <input type="text" name="note" id="edit_txn_note" class="form-input">
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+            <button type="button" class="btn btn-secondary" data-close-modal="editTransactionModal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Update Entry</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Add Bill Modal -->
+  <div class="modal-overlay" id="addBillModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">🧾 Add Recurring Bill</h3>
+        <button class="modal-close" data-close-modal="addBillModal">&times;</button>
+      </div>
+      <form action="{{ url_for('add_bill') }}" method="POST">
+        <input type="hidden" name="partner_id" value="{{ partner.id }}">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Bill / Subscription Name *</label>
+            <input type="text" name="name" class="form-input" placeholder="e.g. Hosting, Domain, Cloud Software" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Amount ($) *</label>
+              <input type="number" step="0.01" min="0.01" name="amount" class="form-input" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Due Date *</label>
+              <input type="date" name="due_date" class="form-input" value="{{ today_str }}" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Interval</label>
+            <select name="recurring_interval" class="form-select">
+              <option value="Monthly">Monthly</option>
+              <option value="Weekly">Weekly</option>
+              <option value="Quarterly">Quarterly</option>
+              <option value="Yearly">Yearly</option>
+              <option value="One-Time">One-Time</option>
+            </select>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+            <button type="button" class="btn btn-secondary" data-close-modal="addBillModal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Bill</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. Add Investment Modal -->
+  <div class="modal-overlay" id="addInvestmentModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">📈 Add Investment / Asset</h3>
+        <button class="modal-close" data-close-modal="addInvestmentModal">&times;</button>
+      </div>
+      <form action="{{ url_for('add_investment') }}" method="POST">
+        <input type="hidden" name="partner_id" value="{{ partner.id }}">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">What Was Bought (Asset Name) *</label>
+            <input type="text" name="asset_name" class="form-input" placeholder="e.g. Heavy Duty Label Printer, Stock, Bulk Material" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Amount Put In ($) *</label>
+              <input type="number" step="0.01" min="0.01" name="amount_invested" class="form-input" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Current Value ($) *</label>
+              <input type="number" step="0.01" min="0.00" name="current_value" class="form-input" placeholder="0.00" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Purchase Date *</label>
+              <input type="date" name="purchase_date" class="form-input" value="{{ today_str }}" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Notes</label>
+              <input type="text" name="notes" class="form-input" placeholder="e.g. Estimated resale value or yield">
+            </div>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+            <button type="button" class="btn btn-secondary" data-close-modal="addInvestmentModal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Investment</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. Edit Investment Modal -->
+  <div class="modal-overlay" id="editInvestmentModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">✏️ Update Investment Value</h3>
+        <button class="modal-close" data-close-modal="editInvestmentModal">&times;</button>
+      </div>
+      <form action="{{ url_for('edit_investment') }}" method="POST">
+        <input type="hidden" name="partner_id" value="{{ partner.id }}">
+        <input type="hidden" name="inv_id" id="edit_inv_id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Asset Name</label>
+            <input type="text" name="asset_name" id="edit_inv_asset" class="form-input" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Amount Put In ($)</label>
+              <input type="number" step="0.01" min="0.01" name="amount_invested" id="edit_inv_invested" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Current Value ($)</label>
+              <input type="number" step="0.01" min="0.00" name="current_value" id="edit_inv_current" class="form-input" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <input type="text" name="notes" id="edit_inv_notes" class="form-input">
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+            <button type="button" class="btn btn-secondary" data-close-modal="editInvestmentModal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Update Asset</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. Edit Savings Goal Modal -->
+  <div class="modal-overlay" id="editSavingsGoalModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">🎯 Update Savings Goal</h3>
+        <button class="modal-close" data-close-modal="editSavingsGoalModal">&times;</button>
+      </div>
+      <form action="{{ url_for('update_savings_goal') }}" method="POST">
+        <input type="hidden" name="partner_id" value="{{ partner.id }}">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Goal Name *</label>
+            <input type="text" name="goal_name" class="form-input" value="{{ partner.savings_goal_name }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target Amount ($) *</label>
+            <input type="number" step="1" min="1" name="target_amount" class="form-input" value="{{ partner.savings_goal_target }}" required>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+            <button type="button" class="btn btn-secondary" data-close-modal="editSavingsGoalModal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Goal</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize Chart.js for Income vs Expenses Bar Chart & Category Pie Chart
+const monthsData = {{ chart_data.months | tojson }};
+const incomeData = {{ chart_data.monthly_income | tojson }};
+const expenseData = {{ chart_data.monthly_expense | tojson }};
+const catLabels = {{ chart_data.expense_categories | tojson }};
+const catAmounts = {{ chart_data.expense_category_amounts | tojson }};
+
+// 1. Monthly Bar Chart
+const barCtx = document.getElementById('monthlyBarChart');
+if (barCtx) {
+  new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: monthsData.length > 0 ? monthsData : ['No data yet'],
+      datasets: [
+        {
+          label: 'Income',
+          data: incomeData.length > 0 ? incomeData : [0],
+          backgroundColor: '#10b981',
+          borderRadius: 4
+        },
+        {
+          label: 'Expense',
+          data: expenseData.length > 0 ? expenseData : [0],
+          backgroundColor: '#ef4444',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: value => '$' + value
+          }
+        }
+      }
+    }
+  });
+}
+
+// 2. Category Pie / Doughnut Chart
+const pieCtx = document.getElementById('categoryPieChart');
+if (pieCtx) {
+  const pieColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#06b6d4', '#6366f1', '#ec4899', '#8b5cf6'];
+  new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+      labels: catLabels.length > 0 ? catLabels : ['No expenses recorded'],
+      datasets: [{
+        data: catAmounts.length > 0 ? catAmounts : [1],
+        backgroundColor: catAmounts.length > 0 ? pieColors.slice(0, catAmounts.length) : ['#e2e8f0']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right' }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

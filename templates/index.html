@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Partner Tracker{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 1.5rem;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <h1 style="font-size: 1.8rem; font-weight: 800; color: var(--neutral-dark);">💼 Business Dashboard</h1>
+      <p style="color: var(--neutral-gray); margin-top: 0.25rem;">
+        Collaborative finance, savings, investments, and weekly task accountability for Partner A &amp; Partner B.
+      </p>
+    </div>
+    <div>
+      <a href="{{ url_for('combined_view') }}" class="btn btn-primary">📊 Full Combined Financials</a>
+    </div>
+  </div>
+</div>
+
+<!-- Combined High-Level Running Totals -->
+<div class="grid-4">
+  <div class="card stat-card income">
+    <div class="stat-label">Combined Income</div>
+    <div class="stat-value green">${{ "%.2f"|format(combined_fin.income) }}</div>
+    <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.3rem;">Total revenue earned</div>
+  </div>
+
+  <div class="card stat-card expense">
+    <div class="stat-label">Combined Expenses</div>
+    <div class="stat-value red">${{ "%.2f"|format(combined_fin.expense) }}</div>
+    <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.3rem;">Total business costs</div>
+  </div>
+
+  <div class="card stat-card savings">
+    <div class="stat-label">Combined Savings</div>
+    <div class="stat-value blue">${{ "%.2f"|format(combined_fin.savings) }}</div>
+    <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.3rem;">Set aside in reserve</div>
+  </div>
+
+  <div class="card stat-card investment">
+    <div class="stat-label">Combined Net Balance</div>
+    <div class="stat-value {% if combined_fin.net >= 0 %}green{% else %}red{% endif %}">
+      ${{ "%.2f"|format(combined_fin.net) }}
+    </div>
+    <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.3rem;">Cash Flow (Income - Expenses)</div>
+  </div>
+</div>
+
+<!-- Partner Side-by-Side Cards -->
+<div class="grid-2">
+  <!-- Partner A Card -->
+  <div class="card" style="border-top: 4px solid var(--partner-a);">
+    <div class="card-header">
+      <div class="card-title">
+        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:var(--partner-a);"></span>
+        Partner A
+      </div>
+      <div>
+        {% if current_user and current_user.id == 'partner_a' %}
+          <span class="badge badge-completed">Logged In (Full Edit)</span>
+        {% else %}
+          <button class="btn btn-outline btn-sm" onclick="promptPartnerLogin('partner_a')">🔑 Log in as A</button>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Finances quick stats -->
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem; margin-bottom:1rem;">
+      <div style="background:#f8fafc; padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <div style="font-size:0.75rem; color:var(--neutral-gray); font-weight:600;">INCOME</div>
+        <div style="font-size:1.25rem; font-weight:700; color:var(--income-green);">${{ "%.2f"|format(a_fin.income) }}</div>
+      </div>
+      <div style="background:#f8fafc; padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <div style="font-size:0.75rem; color:var(--neutral-gray); font-weight:600;">EXPENSES</div>
+        <div style="font-size:1.25rem; font-weight:700; color:var(--expense-red);">${{ "%.2f"|format(a_fin.expense) }}</div>
+      </div>
+    </div>
+
+    <!-- Tasks and Penalties -->
+    <div style="margin-bottom:1rem;">
+      <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.3rem;">
+        <span><strong>Weekly Tasks:</strong> {{ a_done_tasks }}/{{ a_total_tasks }} completed</span>
+        <span style="font-weight:700; color:var(--savings-blue);">{{ a_task_rate }}%</span>
+      </div>
+      <div class="progress-container">
+        <div class="progress-bar" style="width: {{ a_task_rate }}%;"></div>
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:0.75rem; background:#fffbeb; border-radius:var(--radius-sm); border:1px solid #fde68a; margin-bottom:1rem;">
+      <div>
+        <span style="font-size:0.85rem; font-weight:600; color:#92400e;">Pending Penalties:</span>
+      </div>
+      <div>
+        {% if a_pending_penalties > 0 %}
+          <span class="badge badge-overdue">{{ a_pending_penalties }} Pending</span>
+        {% else %}
+          <span class="badge badge-completed">0 Clean Record!</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div style="display:flex; gap:0.5rem;">
+      <a href="{{ url_for('money_view', partner_id='partner_a') }}" class="btn btn-outline btn-sm" style="flex:1;">💰 View Money</a>
+      <a href="{{ url_for('tasks_view', partner_id='partner_a') }}" class="btn btn-outline btn-sm" style="flex:1;">✅ View Tasks</a>
+    </div>
+  </div>
+
+  <!-- Partner B Card -->
+  <div class="card" style="border-top: 4px solid var(--partner-b);">
+    <div class="card-header">
+      <div class="card-title">
+        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:var(--partner-b);"></span>
+        Partner B
+      </div>
+      <div>
+        {% if current_user and current_user.id == 'partner_b' %}
+          <span class="badge badge-completed">Logged In (Full Edit)</span>
+        {% else %}
+          <button class="btn btn-outline btn-sm" onclick="promptPartnerLogin('partner_b')">🔑 Log in as B</button>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Finances quick stats -->
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem; margin-bottom:1rem;">
+      <div style="background:#f8fafc; padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <div style="font-size:0.75rem; color:var(--neutral-gray); font-weight:600;">INCOME</div>
+        <div style="font-size:1.25rem; font-weight:700; color:var(--income-green);">${{ "%.2f"|format(b_fin.income) }}</div>
+      </div>
+      <div style="background:#f8fafc; padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <div style="font-size:0.75rem; color:var(--neutral-gray); font-weight:600;">EXPENSES</div>
+        <div style="font-size:1.25rem; font-weight:700; color:var(--expense-red);">${{ "%.2f"|format(b_fin.expense) }}</div>
+      </div>
+    </div>
+
+    <!-- Tasks and Penalties -->
+    <div style="margin-bottom:1rem;">
+      <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.3rem;">
+        <span><strong>Weekly Tasks:</strong> {{ b_done_tasks }}/{{ b_total_tasks }} completed</span>
+        <span style="font-weight:700; color:var(--savings-blue);">{{ b_task_rate }}%</span>
+      </div>
+      <div class="progress-container">
+        <div class="progress-bar" style="width: {{ b_task_rate }}%;"></div>
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:0.75rem; background:#fffbeb; border-radius:var(--radius-sm); border:1px solid #fde68a; margin-bottom:1rem;">
+      <div>
+        <span style="font-size:0.85rem; font-weight:600; color:#92400e;">Pending Penalties:</span>
+      </div>
+      <div>
+        {% if b_pending_penalties > 0 %}
+          <span class="badge badge-overdue">{{ b_pending_penalties }} Pending</span>
+        {% else %}
+          <span class="badge badge-completed">0 Clean Record!</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div style="display:flex; gap:0.5rem;">
+      <a href="{{ url_for('money_view', partner_id='partner_b') }}" class="btn btn-outline btn-sm" style="flex:1;">💰 View Money</a>
+      <a href="{{ url_for('tasks_view', partner_id='partner_b') }}" class="btn btn-outline btn-sm" style="flex:1;">✅ View Tasks</a>
+    </div>
+  </div>
+</div>
+
+<!-- Partnership Accountability Charter / Habit Reminder -->
+<div class="card" style="background:linear-gradient(135deg, #ffffff, #f8fafc); border-left:4px solid #4f46e5;">
+  <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:0.5rem;">💡 Partnership Accountability Guidelines</h3>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1rem; font-size:0.88rem; color:var(--neutral-gray);">
+    <div>
+      <strong style="color:var(--neutral-dark);">1. Daily Check-in:</strong>
+      <p>Log in every evening or morning, mark off your daily tasks, and record any business expense the day it happens.</p>
+    </div>
+    <div>
+      <strong style="color:var(--neutral-dark);">2. Weekly Review:</strong>
+      <p>Look at the Combined page every Sunday to review total profit, bill status, and investment progress together.</p>
+    </div>
+    <div>
+      <strong style="color:var(--neutral-dark);">3. Fair Consequence System:</strong>
+      <p>Missed tasks automatically trigger penalties. Consequences are safe, constructive, and meant to build discipline!</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
