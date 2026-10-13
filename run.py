@@ -13,19 +13,25 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 from database.db import init_db
 from app import app
 
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 def open_browser():
     """Automatically launches the user's default web browser to the app."""
     webbrowser.open_new("http://127.0.0.1:5000")
 
 if __name__ == "__main__":
     print("=" * 60)
-    print(" 🤝 PARTNER TRACKER - Two-Person Money & Task Tracker")
+    print(" PARTNER TRACKER - Executive Platform")
     print("=" * 60)
     print("[*] Checking and initializing database...")
     init_db(seed=False)
     print("[+] Database verified (Clean Slate).")
     print("------------------------------------------------------------")
-    print("[*] Starting executive web server on http://127.0.0.1:5000 ...")
+    print("[*] Starting executive web server...")
     print("    Press Ctrl+C to stop the server at any time.")
     import socket
     local_ip = "127.0.0.1"
@@ -34,12 +40,13 @@ if __name__ == "__main__":
     except Exception:
         pass
     print("------------------------------------------------------------")
-    print(f" 💻 Laptop access:        http://127.0.0.1:5000")
-    print(f" 📱 Mobile Phone (Wi-Fi): http://{local_ip}:5000")
+    print(f" [>] Laptop access:        http://127.0.0.1:5000")
+    print(f" [>] Mobile Phone (Wi-Fi): http://{local_ip}:5000")
     print("=" * 60)
 
     # Schedule browser opening after 1.2 seconds
     Timer(1.2, open_browser).start()
     
     app.run(host="0.0.0.0", port=5000, debug=False)
+
 
