@@ -23,14 +23,31 @@ from ai_verifier import verify_goal_evidence
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "imran_mikiyas_venture_secure_key_2026")
 
+is_serverless = bool(
+    os.environ.get("VERCEL")
+    or os.environ.get("VERCEL_ENV")
+    or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+    or os.environ.get("LAMBDA_TASK_ROOT")
+    or not os.access(os.path.dirname(os.path.abspath(__file__)), os.W_OK)
+)
+
 # Directory for proof evidence uploads
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads", "proofs")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+if is_serverless:
+    UPLOAD_FOLDER = "/tmp/uploads/proofs"
+else:
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads", "proofs")
+
+try:
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+except Exception:
+    pass
+
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max
 
 # Ensure clean database initialization
 init_db(seed=False)
+
 
 # Master Passwords (never displayed on screen)
 DEFAULT_MASTER_PASSWORDS = [
@@ -89,6 +106,12 @@ def manifest():
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory("static", "sw.js", mimetype="application/javascript")
+
+@app.route("/static/uploads/proofs/<path:filename>")
+@app.route("/uploads/proofs/<path:filename>")
+def serve_proof_upload(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
 
 
 # ============================================================================

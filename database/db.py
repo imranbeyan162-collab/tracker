@@ -8,15 +8,27 @@ import os
 from datetime import datetime, date, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Path to database file (supporting both local dev and Vercel serverless /tmp)
-if os.environ.get("VERCEL"):
+# Serverless detection (Vercel, AWS Lambda, or read-only deploy environments)
+is_serverless = bool(
+    os.environ.get("VERCEL")
+    or os.environ.get("VERCEL_ENV")
+    or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+    or os.environ.get("LAMBDA_TASK_ROOT")
+    or not os.access(os.path.dirname(os.path.abspath(__file__)), os.W_OK)
+)
+
+if is_serverless:
     DB_DIR = "/tmp"
     DB_PATH = os.path.join(DB_DIR, "partner_tracker.db")
     repo_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "partner_tracker.db")
     if not os.path.exists(DB_PATH) and os.path.exists(repo_db):
         try:
             import shutil
-            shutil.copy2(repo_db, DB_PATH)
+            shutil.copyfile(repo_db, DB_PATH)
+            try:
+                os.chmod(DB_PATH, 0o666)
+            except Exception:
+                pass
         except Exception:
             pass
 else:
@@ -34,9 +46,13 @@ def get_db_connection():
 
 def init_db(seed=False):
     """Initializes tables with clean state and AI verification fields."""
-    os.makedirs(DB_DIR, exist_ok=True)
+    try:
+        os.makedirs(DB_DIR, exist_ok=True)
+    except Exception:
+        pass
     conn = get_db_connection()
     cursor = conn.cursor()
+
 
     # 1. Users table (Imran and Mikiyas)
     cursor.execute("""
