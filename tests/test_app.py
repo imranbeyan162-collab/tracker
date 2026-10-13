@@ -29,7 +29,7 @@ class VentureTestCase(unittest.TestCase):
     def test_02_master_password_login(self):
         """Test master password unlocks portal as Imran or Mikiyas."""
         res_fail = self.client.post("/login", data={"partner_id": "imran", "pin": "wrongpass"}, follow_redirects=True)
-        self.assertIn(b"Invalid security password", res_fail.data)
+        self.assertIn(b"Incorrect security code. Access denied.", res_fail.data)
 
         # Correct master password
         res_ok = self.client.post("/login", data={"partner_id": "imran", "pin": "imranandmicas@gmail.com"}, follow_redirects=True)

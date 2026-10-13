@@ -6,14 +6,11 @@
 <!-- Sub Navigation -->
 <div class="partner-tabs">
   <div class="tab-group">
-    <a href="{{ url_for('money_view', partner_id='imran') }}" class="tab-btn {% if partner.id == 'imran' %}active{% endif %}">
-      Imran
-    </a>
-    <a href="{{ url_for('money_view', partner_id='mikiyas') }}" class="tab-btn {% if partner.id == 'mikiyas' %}active{% endif %}">
-      Mikiyas
+    <a href="{{ url_for('money_view', partner_id=partner.id) }}" class="tab-btn active">
+      {{ partner.name }}'s Private Ledger
     </a>
     <a href="{{ url_for('combined_view') }}" class="tab-btn">
-      Consolidated
+      Consolidated Venture
     </a>
   </div>
 

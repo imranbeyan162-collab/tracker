@@ -1,40 +1,50 @@
 """
 Imran & Mikiyas Venture Management Platform
-Main Application Controller
+Includes strict privacy gates, AI proof verification, PWA mobile integration,
+and scheduled reminder notifications.
 """
 
 import os
 import io
 import csv
 from datetime import datetime, date, timedelta
+from werkzeug.utils import secure_filename
 from flask import (
-    Flask, render_template, request, redirect, url_for, flash, session, Response
+    Flask, render_template, request, redirect, url_for, flash, session, Response, send_from_directory, jsonify
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from database.db import (
     get_db_connection, init_db, check_and_apply_penalties,
-    calculate_task_streak, get_user_financial_totals, get_chart_data, get_goals
+    calculate_task_streak, get_user_financial_totals, get_chart_data,
+    get_private_goals, get_private_tasks
 )
+from ai_verifier import verify_goal_evidence
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "imran_mikiyas_venture_secure_key_2026")
 
-# Initialize clean database on startup
+# Directory for proof evidence uploads
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads", "proofs")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max
+
+# Ensure clean database initialization
 init_db(seed=False)
 
-# Master Passwords accepted for initial system login
+# Master Passwords (never displayed on screen)
 DEFAULT_MASTER_PASSWORDS = [
-    "imranandmicas@gmail.com",
     "imran&mikiyas@gmail",
+    "imranandmicas@gmail.com",
     "imran&mikiyas@gmail.com"
 ]
 
 
 @app.before_request
 def require_authentication_gate():
-    """Gatekeeper: Restricts all pages behind the master login screen."""
-    # Allow static assets and login route without session
-    if request.path.startswith("/static/") or request.path in ("/login", "/favicon.ico"):
+    """Gatekeeper: Blocks all unauthenticated traffic behind the login portal."""
+    allowed_paths = ("/login", "/favicon.ico", "/manifest.json", "/sw.js")
+    if request.path.startswith("/static/") or request.path in allowed_paths:
         return None
 
     if not session.get("logged_in_user"):
@@ -43,7 +53,7 @@ def require_authentication_gate():
 
 @app.context_processor
 def inject_globals():
-    """Injects authenticated user and global stats into templates."""
+    """Injects current user and pending alerts into all templates."""
     today_str = date.today().strftime("%Y-%m-%d")
     current_user = None
     logged_id = session.get("logged_in_user")
@@ -69,12 +79,25 @@ def inject_globals():
 
 
 # ============================================================================
+# PWA Routes (Mobile Installation)
+# ============================================================================
+
+@app.route("/manifest.json")
+def manifest():
+    return send_from_directory("static", "manifest.json", mimetype="application/manifest+json")
+
+@app.route("/sw.js")
+def service_worker():
+    return send_from_directory("static", "sw.js", mimetype="application/javascript")
+
+
+# ============================================================================
 # Security Gatekeeper & Login
 # ============================================================================
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    """Access portal login asking for the system password."""
+    """Access portal login asking for the private password."""
     if request.method == "GET":
         if session.get("logged_in_user"):
             return redirect(url_for("index"))
@@ -84,7 +107,7 @@ def login():
     pin = request.form.get("pin", "").strip()
 
     if not pin:
-        flash("Password is required to access the platform.", "danger")
+        flash("Password required to access workspace.", "danger")
         return render_template("login.html")
 
     conn = get_db_connection()
@@ -93,22 +116,20 @@ def login():
     user = cursor.fetchone()
     conn.close()
 
-    # Check if entered password matches master passwords or user's stored hash
     is_master_match = any(pin.lower() == p.lower() for p in DEFAULT_MASTER_PASSWORDS)
     is_hash_match = user and check_password_hash(user["pin_hash"], pin)
 
     if is_master_match or is_hash_match:
         session["logged_in_user"] = partner_id
-        flash(f"Access granted. Welcome, {user['name'] if user else partner_id.capitalize()}.", "success")
+        flash(f"Workspace unlocked. Welcome, {user['name'] if user else partner_id.capitalize()}.", "success")
         return redirect(url_for("index"))
     else:
-        flash("Invalid security password. Access denied.", "danger")
+        flash("Incorrect security code. Access denied.", "danger")
         return render_template("login.html")
 
 
 @app.route("/logout")
 def logout():
-    """Locks workspace and clears session."""
     session.pop("logged_in_user", None)
     flash("Session terminated. Workspace locked.", "info")
     return redirect(url_for("login"))
@@ -116,17 +137,15 @@ def logout():
 
 @app.route("/switch-partner", methods=["POST"])
 def switch_partner():
-    """Quickly toggles active user between Imran and Mikiyas."""
     target_id = request.form.get("partner_id")
     if target_id in ("imran", "mikiyas"):
         session["logged_in_user"] = target_id
-        flash(f"Switched active partner view to {target_id.capitalize()}.", "success")
+        flash(f"Switched partner context to {target_id.capitalize()}.", "success")
     return redirect(request.referrer or url_for("index"))
 
 
 @app.route("/change-pin", methods=["POST"])
 def change_pin():
-    """Updates password for the authenticated partner."""
     logged_id = session.get("logged_in_user")
     current_pin = request.form.get("current_pin", "").strip()
     new_pin = request.form.get("new_pin", "").strip()
@@ -168,9 +187,9 @@ def change_pin():
 
 @app.route("/")
 def index():
-    """Consolidated overview of venture metrics for Imran & Mikiyas."""
     conn = get_db_connection()
     cursor = conn.cursor()
+    viewer_id = session.get("logged_in_user", "imran")
 
     combined_fin = get_user_financial_totals(conn, user_id=None)
     a_fin = get_user_financial_totals(conn, user_id="imran")
@@ -180,14 +199,14 @@ def index():
     curr_week = f"{today.year}-W{today.isocalendar()[1]:02d}"
 
     # Imran stats
-    cursor.execute("SELECT COUNT(*), SUM(is_done) FROM tasks WHERE user_id = 'imran' AND week_identifier = ?", (curr_week,))
+    cursor.execute("SELECT COUNT(*), SUM(is_done) FROM tasks WHERE (user_id = 'imran' OR task_type = 'shared') AND week_identifier = ?", (curr_week,))
     a_total, a_done = cursor.fetchone()
     a_total_tasks = a_total or 0
     a_done_tasks = a_done or 0
     a_task_rate = int((a_done_tasks / a_total_tasks * 100)) if a_total_tasks > 0 else 0
 
     # Mikiyas stats
-    cursor.execute("SELECT COUNT(*), SUM(is_done) FROM tasks WHERE user_id = 'mikiyas' AND week_identifier = ?", (curr_week,))
+    cursor.execute("SELECT COUNT(*), SUM(is_done) FROM tasks WHERE (user_id = 'mikiyas' OR task_type = 'shared') AND week_identifier = ?", (curr_week,))
     b_total, b_done = cursor.fetchone()
     b_total_tasks = b_total or 0
     b_done_tasks = b_done or 0
@@ -219,31 +238,36 @@ def index():
 
 
 # ============================================================================
-# Goals & Habits Architecture
+# Goals Architecture (Strict Privacy & AI Proof Validation)
 # ============================================================================
 
 @app.route("/goals")
 def goals_view():
-    """Goals architecture: Shared goals, Imran goals, and Mikiyas goals."""
+    """
+    STRICT PRIVACY:
+    Imran sees Shared Goals + Imran's Personal Goals ONLY.
+    Mikiyas sees Shared Goals + Mikiyas's Personal Goals ONLY.
+    """
+    viewer_id = session.get("logged_in_user", "imran")
     conn = get_db_connection()
-    shared_goals = get_goals(conn, goal_type="shared")
-    imran_goals = get_goals(conn, goal_type="imran")
-    mikiyas_goals = get_goals(conn, goal_type="mikiyas")
+    shared_goals, personal_goals = get_private_goals(conn, viewer_id)
     conn.close()
 
     return render_template(
         "goals.html",
         active_page="goals",
         shared_goals=shared_goals,
-        imran_goals=imran_goals,
-        mikiyas_goals=mikiyas_goals
+        personal_goals=personal_goals,
+        viewer_id=viewer_id
     )
 
 
 @app.route("/goals/add", methods=["POST"])
 def add_goal():
-    """Adds a new goal commitment."""
-    goal_type = request.form.get("goal_type", "shared")
+    viewer_id = session.get("logged_in_user", "imran")
+    goal_type = request.form.get("goal_type", "personal")
+    actual_type = "shared" if goal_type == "shared" else viewer_id
+
     title = request.form.get("title", "").strip()
     description = request.form.get("description", "").strip()
     target_time = request.form.get("target_time", "").strip()
@@ -259,7 +283,7 @@ def add_goal():
     cursor.execute("""
     INSERT INTO goals (goal_type, title, description, target_time, target_date, category, is_completed, reminder_enabled)
     VALUES (?, ?, ?, ?, ?, ?, 0, 1)
-    """, (goal_type, title, description, target_time, target_date, category))
+    """, (actual_type, title, description, target_time, target_date, category))
     conn.commit()
     conn.close()
 
@@ -267,9 +291,69 @@ def add_goal():
     return redirect(url_for("goals_view"))
 
 
+@app.route("/goals/verify-proof/<int:goal_id>", methods=["POST"])
+def verify_goal_proof(goal_id):
+    """
+    AI GOAL AUDIT:
+    Accepts uploaded screenshot/photo proof and description.
+    AI evaluates whether proof matches goal criteria before approving.
+    """
+    proof_text = request.form.get("proof_text", "").strip()
+    file = request.files.get("proof_image")
+
+    image_rel_path = None
+    image_full_path = None
+
+    if file and file.filename:
+        filename = secure_filename(f"goal_{goal_id}_{int(datetime.now().timestamp())}_{file.filename}")
+        image_full_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(image_full_path)
+        image_rel_path = f"/static/uploads/proofs/{filename}"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM goals WHERE id = ?", (goal_id,))
+    goal = cursor.fetchone()
+
+    if not goal:
+        conn.close()
+        flash("Goal not found.", "danger")
+        return redirect(url_for("goals_view"))
+
+    # Run AI Validator
+    is_approved, feedback = verify_goal_evidence(
+        goal["title"],
+        goal["description"],
+        proof_text,
+        image_full_path
+    )
+
+    new_completed = 1 if is_approved else 0
+    ai_status = "Approved" if is_approved else "Rejected"
+
+    cursor.execute("""
+    UPDATE goals 
+    SET proof_image = COALESCE(?, proof_image),
+        proof_text = ?,
+        ai_verified = ?,
+        ai_status = ?,
+        ai_feedback = ?,
+        is_completed = ?
+    WHERE id = ?
+    """, (image_rel_path, proof_text, 1 if is_approved else 0, ai_status, feedback, new_completed, goal_id))
+    conn.commit()
+    conn.close()
+
+    if is_approved:
+        flash(f"AI VERIFICATION PASSED: {feedback}", "success")
+    else:
+        flash(f"AI VERIFICATION REJECTED: {feedback}", "danger")
+
+    return redirect(url_for("goals_view"))
+
+
 @app.route("/goals/toggle/<int:goal_id>", methods=["POST"])
 def toggle_goal_status(goal_id):
-    """Toggles completion status for a goal."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE goals SET is_completed = 1 - is_completed WHERE id = ?", (goal_id,))
@@ -280,7 +364,6 @@ def toggle_goal_status(goal_id):
 
 @app.route("/goals/delete/<int:goal_id>", methods=["POST"])
 def delete_goal(goal_id):
-    """Deletes a goal."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM goals WHERE id = ?", (goal_id,))
@@ -291,37 +374,243 @@ def delete_goal(goal_id):
 
 
 # ============================================================================
+# Weekly Tasks (Strict Privacy, Easy 1-Click Quick Add, AI Proofs)
+# ============================================================================
+
+@app.route("/tasks")
+def tasks_default():
+    viewer_id = session.get("logged_in_user", "imran")
+    return redirect(url_for("tasks_view", partner_id=viewer_id))
+
+
+@app.route("/tasks/<partner_id>")
+def tasks_view(partner_id):
+    viewer_id = session.get("logged_in_user", "imran")
+    # Strict privacy: partner_id must be the viewer's own id
+    if partner_id != viewer_id:
+        return redirect(url_for("tasks_view", partner_id=viewer_id))
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM users WHERE id = ?", (viewer_id,))
+    partner = cursor.fetchone()
+
+    today = date.today()
+    today_str = today.strftime("%Y-%m-%d")
+    current_week_id = f"{today.year}-W{today.isocalendar()[1]:02d}"
+
+    cursor.execute("""
+    SELECT DISTINCT week_identifier FROM tasks 
+    WHERE (user_id = ? OR task_type = 'shared')
+    ORDER BY week_identifier DESC
+    """, (viewer_id,))
+    existing_weeks = [r[0] for r in cursor.fetchall()]
+    if current_week_id not in existing_weeks:
+        existing_weeks.insert(0, current_week_id)
+
+    selected_week = request.args.get("week", current_week_id)
+    if selected_week not in existing_weeks:
+        selected_week = current_week_id
+
+    # Strictly private tasks (Shared + User's personal tasks only)
+    all_tasks = get_private_tasks(conn, viewer_id, selected_week)
+
+    today_tasks = [t for t in all_tasks if t["due_date"] == today_str]
+    total_tasks_count = len(all_tasks)
+    done_tasks_count = len([t for t in all_tasks if t["is_done"]])
+    completion_rate = int((done_tasks_count / total_tasks_count * 100)) if total_tasks_count > 0 else 0
+    streak_count = calculate_task_streak(conn, viewer_id)
+
+    conn.close()
+
+    return render_template(
+        "tasks.html",
+        active_page="tasks",
+        partner=partner,
+        selected_week=selected_week,
+        current_week_id=current_week_id,
+        available_weeks=existing_weeks,
+        all_tasks=all_tasks,
+        today_tasks=today_tasks,
+        total_tasks_count=total_tasks_count,
+        done_tasks_count=done_tasks_count,
+        completion_rate=completion_rate,
+        streak_count=streak_count,
+        viewer_id=viewer_id
+    )
+
+
+@app.route("/tasks/quick-add", methods=["POST"])
+def quick_add_task():
+    """Ultra-fast 1-click milestone adder."""
+    viewer_id = session.get("logged_in_user", "imran")
+    week_id = request.form.get("week_id")
+    title = request.form.get("title", "").strip()
+    task_type = request.form.get("task_type", "personal")
+    due_date = request.form.get("due_date", date.today().strftime("%Y-%m-%d")).strip()
+    target_time = request.form.get("target_time", "").strip()
+
+    if not title:
+        flash("Task title required.", "danger")
+        return redirect(url_for("tasks_view", partner_id=viewer_id, week=week_id))
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    INSERT INTO tasks (user_id, task_type, week_identifier, title, details, due_date, target_time, is_done)
+    VALUES (?, ?, ?, ?, '', ?, ?, 0)
+    """, (viewer_id, task_type, week_id, title, due_date, target_time))
+    conn.commit()
+    conn.close()
+
+    flash(f"Task '{title}' scheduled.", "success")
+    return redirect(url_for("tasks_view", partner_id=viewer_id, week=week_id))
+
+
+@app.route("/tasks/toggle/<int:task_id>", methods=["POST"])
+def toggle_task_done(task_id):
+    viewer_id = session.get("logged_in_user", "imran")
+    week_id = request.form.get("week_id")
+    today_str = date.today().strftime("%Y-%m-%d")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT is_done FROM tasks WHERE id = ? AND (user_id = ? OR task_type = 'shared')", (task_id, viewer_id))
+    task = cursor.fetchone()
+    if task:
+        new_status = 0 if task["is_done"] else 1
+        done_date = today_str if new_status == 1 else None
+        cursor.execute("UPDATE tasks SET is_done = ?, done_date = ? WHERE id = ?", (new_status, done_date, task_id))
+        conn.commit()
+    conn.close()
+
+    return redirect(url_for("tasks_view", partner_id=viewer_id, week=week_id))
+
+
+@app.route("/tasks/verify-proof/<int:task_id>", methods=["POST"])
+def verify_task_proof(task_id):
+    """AI Milestone proof verification."""
+    viewer_id = session.get("logged_in_user", "imran")
+    week_id = request.form.get("week_id")
+    proof_text = request.form.get("proof_text", "").strip()
+    file = request.files.get("proof_image")
+
+    image_rel_path = None
+    image_full_path = None
+
+    if file and file.filename:
+        filename = secure_filename(f"task_{task_id}_{int(datetime.now().timestamp())}_{file.filename}")
+        image_full_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(image_full_path)
+        image_rel_path = f"/static/uploads/proofs/{filename}"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+    task = cursor.fetchone()
+
+    if not task:
+        conn.close()
+        flash("Task not found.", "danger")
+        return redirect(url_for("tasks_view", partner_id=viewer_id, week=week_id))
+
+    is_approved, feedback = verify_goal_evidence(
+        task["title"],
+        task["details"],
+        proof_text,
+        image_full_path
+    )
+
+    new_completed = 1 if is_approved else 0
+    ai_status = "Approved" if is_approved else "Rejected"
+    today_str = date.today().strftime("%Y-%m-%d") if is_approved else None
+
+    cursor.execute("""
+    UPDATE tasks 
+    SET proof_image = COALESCE(?, proof_image),
+        proof_text = ?,
+        ai_verified = ?,
+        ai_status = ?,
+        ai_feedback = ?,
+        is_done = ?,
+        done_date = ?
+    WHERE id = ?
+    """, (image_rel_path, proof_text, 1 if is_approved else 0, ai_status, feedback, new_completed, today_str, task_id))
+    conn.commit()
+    conn.close()
+
+    if is_approved:
+        flash(f"AI VERIFICATION PASSED: {feedback}", "success")
+    else:
+        flash(f"AI VERIFICATION REJECTED: {feedback}", "danger")
+
+    return redirect(url_for("tasks_view", partner_id=viewer_id, week=week_id))
+
+
+@app.route("/tasks/delete/<int:task_id>", methods=["POST"])
+def delete_task(task_id):
+    viewer_id = session.get("logged_in_user", "imran")
+    week_id = request.form.get("week_id")
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM tasks WHERE id = ? AND (user_id = ? OR task_type = 'shared')", (task_id, viewer_id))
+    conn.commit()
+    conn.close()
+
+    flash("Task removed.", "info")
+    return redirect(url_for("tasks_view", partner_id=viewer_id, week=week_id))
+
+
+@app.route("/tasks/archive-week", methods=["POST"])
+def archive_week():
+    viewer_id = session.get("logged_in_user", "imran")
+    week_id = request.form.get("week_id")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE tasks SET is_archived = 1 WHERE user_id = ? AND week_identifier = ?", (viewer_id, week_id))
+    conn.commit()
+    check_and_apply_penalties(conn)
+    conn.close()
+
+    flash(f"Week {week_id} archived.", "success")
+    return redirect(url_for("tasks_view", partner_id=viewer_id))
+
+
+# ============================================================================
 # Financial Ledger Views & Operations
 # ============================================================================
 
 @app.route("/money/<partner_id>")
 def money_view(partner_id):
-    """Financial ledger for specified partner."""
-    if partner_id not in ("imran", "mikiyas"):
-        return redirect(url_for("money_view", partner_id="imran"))
+    viewer_id = session.get("logged_in_user", "imran")
+    # Strict privacy: can only access own financials
+    if partner_id != viewer_id:
+        return redirect(url_for("money_view", partner_id=viewer_id))
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM users WHERE id = ?", (partner_id,))
+    cursor.execute("SELECT * FROM users WHERE id = ?", (viewer_id,))
     partner = cursor.fetchone()
 
-    fin_totals = get_user_financial_totals(conn, user_id=partner_id)
+    fin_totals = get_user_financial_totals(conn, user_id=viewer_id)
 
     savings_pct = 0
     if partner and partner["savings_goal_target"] > 0:
         savings_pct = min(100, int((fin_totals["savings"] / partner["savings_goal_target"]) * 100))
 
-    cursor.execute("SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC, id DESC", (partner_id,))
+    cursor.execute("SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC, id DESC", (viewer_id,))
     transactions = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM bills WHERE user_id = ? ORDER BY is_paid ASC, due_date ASC", (partner_id,))
+    cursor.execute("SELECT * FROM bills WHERE user_id = ? ORDER BY is_paid ASC, due_date ASC", (viewer_id,))
     bills = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM investments WHERE user_id = ? ORDER BY purchase_date DESC", (partner_id,))
+    cursor.execute("SELECT * FROM investments WHERE user_id = ? ORDER BY purchase_date DESC", (viewer_id,))
     investments = cursor.fetchall()
 
-    chart_data = get_chart_data(conn, user_id=partner_id)
+    chart_data = get_chart_data(conn, user_id=viewer_id)
     conn.close()
 
     return render_template(
@@ -333,14 +622,14 @@ def money_view(partner_id):
         transactions=transactions,
         bills=bills,
         investments=investments,
-        chart_data=chart_data
+        chart_data=chart_data,
+        viewer_id=viewer_id
     )
 
 
 @app.route("/money/add", methods=["POST"])
 def add_transaction():
-    """Adds a financial ledger transaction."""
-    partner_id = request.form.get("partner_id")
+    viewer_id = session.get("logged_in_user", "imran")
     date_val = request.form.get("date")
     type_val = request.form.get("type")
     category = request.form.get("category", "").strip()
@@ -349,34 +638,33 @@ def add_transaction():
 
     if not date_val or not type_val or not category or not amount_str:
         flash("All fields are required.", "danger")
-        return redirect(url_for("money_view", partner_id=partner_id))
+        return redirect(url_for("money_view", partner_id=viewer_id))
 
     try:
         amount = float(amount_str)
         if amount <= 0:
             flash("Amount must be greater than zero.", "danger")
-            return redirect(url_for("money_view", partner_id=partner_id))
+            return redirect(url_for("money_view", partner_id=viewer_id))
     except ValueError:
         flash("Invalid numerical amount.", "danger")
-        return redirect(url_for("money_view", partner_id=partner_id))
+        return redirect(url_for("money_view", partner_id=viewer_id))
 
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
     INSERT INTO transactions (user_id, date, type, category, amount, currency, note)
     VALUES (?, ?, ?, ?, ?, '$', ?)
-    """, (partner_id, date_val, type_val, category, amount, note))
+    """, (viewer_id, date_val, type_val, category, amount, note))
     conn.commit()
     conn.close()
 
     flash(f"{type_val} entry of ${amount:.2f} logged.", "success")
-    return redirect(url_for("money_view", partner_id=partner_id))
+    return redirect(url_for("money_view", partner_id=viewer_id))
 
 
 @app.route("/money/edit", methods=["POST"])
 def edit_transaction():
-    """Modifies an existing transaction."""
-    partner_id = request.form.get("partner_id")
+    viewer_id = session.get("logged_in_user", "imran")
     txn_id = request.form.get("txn_id")
     date_val = request.form.get("date")
     type_val = request.form.get("type")
@@ -388,10 +676,10 @@ def edit_transaction():
         amount = float(amount_str)
         if amount <= 0:
             flash("Amount must be greater than zero.", "danger")
-            return redirect(url_for("money_view", partner_id=partner_id))
+            return redirect(url_for("money_view", partner_id=viewer_id))
     except ValueError:
         flash("Invalid numerical amount.", "danger")
-        return redirect(url_for("money_view", partner_id=partner_id))
+        return redirect(url_for("money_view", partner_id=viewer_id))
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -399,35 +687,34 @@ def edit_transaction():
     UPDATE transactions 
     SET date = ?, type = ?, category = ?, amount = ?, note = ?
     WHERE id = ? AND user_id = ?
-    """, (date_val, type_val, category, amount, note, txn_id, partner_id))
+    """, (date_val, type_val, category, amount, note, txn_id, viewer_id))
     conn.commit()
     conn.close()
 
     flash("Transaction updated.", "success")
-    return redirect(url_for("money_view", partner_id=partner_id))
+    return redirect(url_for("money_view", partner_id=viewer_id))
 
 
 @app.route("/money/delete/<int:txn_id>", methods=["POST"])
 def delete_transaction(txn_id):
-    """Deletes a transaction entry."""
-    partner_id = request.form.get("partner_id")
+    viewer_id = session.get("logged_in_user", "imran")
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM transactions WHERE id = ? AND user_id = ?", (txn_id, partner_id))
+    cursor.execute("DELETE FROM transactions WHERE id = ? AND user_id = ?", (txn_id, viewer_id))
     conn.commit()
     conn.close()
 
     flash("Entry removed.", "info")
-    return redirect(url_for("money_view", partner_id=partner_id))
+    return redirect(url_for("money_view", partner_id=viewer_id))
 
 
 # ============================================================================
-# Bills, Investments & Savings Goals
+# Bills & Investments
 # ============================================================================
 
 @app.route("/bills/add", methods=["POST"])
 def add_bill():
-    partner_id = request.form.get("partner_id")
+    viewer_id = session.get("logged_in_user", "imran")
     name = request.form.get("name", "").strip()
     amount_str = request.form.get("amount", "").strip()
     due_date = request.form.get("due_date", "").strip()
@@ -437,46 +724,46 @@ def add_bill():
         amount = float(amount_str)
     except ValueError:
         flash("Invalid numerical amount.", "danger")
-        return redirect(url_for("money_view", partner_id=partner_id))
+        return redirect(url_for("money_view", partner_id=viewer_id))
 
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
     INSERT INTO bills (user_id, name, amount, currency, due_date, is_paid, recurring_interval)
     VALUES (?, ?, ?, '$', ?, 0, ?)
-    """, (partner_id, name, amount, due_date, interval))
+    """, (viewer_id, name, amount, due_date, interval))
     conn.commit()
     conn.close()
 
     flash(f"Obligation '{name}' logged.", "success")
-    return redirect(url_for("money_view", partner_id=partner_id))
+    return redirect(url_for("money_view", partner_id=viewer_id))
 
 
 @app.route("/bills/toggle/<int:bill_id>", methods=["POST"])
 def toggle_bill_paid(bill_id):
-    partner_id = request.form.get("partner_id")
+    viewer_id = session.get("logged_in_user", "imran")
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE bills SET is_paid = 1 - is_paid WHERE id = ? AND user_id = ?", (bill_id, partner_id))
+    cursor.execute("UPDATE bills SET is_paid = 1 - is_paid WHERE id = ? AND user_id = ?", (bill_id, viewer_id))
     conn.commit()
     conn.close()
-    return redirect(url_for("money_view", partner_id=partner_id))
+    return redirect(url_for("money_view", partner_id=viewer_id))
 
 
 @app.route("/bills/delete/<int:bill_id>", methods=["POST"])
 def delete_bill(bill_id):
-    partner_id = request.form.get("partner_id")
+    viewer_id = session.get("logged_in_user", "imran")
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM bills WHERE id = ? AND user_id = ?", (bill_id, partner_id))
+    cursor.execute("DELETE FROM bills WHERE id = ? AND user_id = ?", (bill_id, viewer_id))
     conn.commit()
     conn.close()
-    return redirect(url_for("money_view", partner_id=partner_id))
+    return redirect(url_for("money_view", partner_id=viewer_id))
 
 
 @app.route("/investments/add", methods=["POST"])
 def add_investment():
-    partner_id = request.form.get("partner_id")
+    viewer_id = session.get("logged_in_user", "imran")
     asset_name = request.form.get("asset_name", "").strip()
     invested_str = request.form.get("amount_invested", "").strip()
     current_str = request.form.get("current_value", "").strip()
@@ -488,24 +775,24 @@ def add_investment():
         current_value = float(current_str)
     except ValueError:
         flash("Invalid numerical amount.", "danger")
-        return redirect(url_for("money_view", partner_id=partner_id))
+        return redirect(url_for("money_view", partner_id=viewer_id))
 
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
     INSERT INTO investments (user_id, asset_name, amount_invested, current_value, currency, purchase_date, notes)
     VALUES (?, ?, ?, ?, '$', ?, ?)
-    """, (partner_id, asset_name, amount_invested, current_value, purchase_date, notes))
+    """, (viewer_id, asset_name, amount_invested, current_value, purchase_date, notes))
     conn.commit()
     conn.close()
 
     flash(f"Asset '{asset_name}' logged.", "success")
-    return redirect(url_for("money_view", partner_id=partner_id))
+    return redirect(url_for("money_view", partner_id=viewer_id))
 
 
 @app.route("/investments/edit", methods=["POST"])
 def edit_investment():
-    partner_id = request.form.get("partner_id")
+    viewer_id = session.get("logged_in_user", "imran")
     inv_id = request.form.get("inv_id")
     asset_name = request.form.get("asset_name", "").strip()
     invested_str = request.form.get("amount_invested", "").strip()
@@ -517,7 +804,7 @@ def edit_investment():
         current_value = float(current_str)
     except ValueError:
         flash("Invalid numerical values.", "danger")
-        return redirect(url_for("money_view", partner_id=partner_id))
+        return redirect(url_for("money_view", partner_id=viewer_id))
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -525,28 +812,28 @@ def edit_investment():
     UPDATE investments
     SET asset_name = ?, amount_invested = ?, current_value = ?, notes = ?
     WHERE id = ? AND user_id = ?
-    """, (asset_name, amount_invested, current_value, notes, inv_id, partner_id))
+    """, (asset_name, amount_invested, current_value, notes, inv_id, viewer_id))
     conn.commit()
     conn.close()
 
     flash("Valuation updated.", "success")
-    return redirect(url_for("money_view", partner_id=partner_id))
+    return redirect(url_for("money_view", partner_id=viewer_id))
 
 
 @app.route("/investments/delete/<int:inv_id>", methods=["POST"])
 def delete_investment(inv_id):
-    partner_id = request.form.get("partner_id")
+    viewer_id = session.get("logged_in_user", "imran")
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM investments WHERE id = ? AND user_id = ?", (inv_id, partner_id))
+    cursor.execute("DELETE FROM investments WHERE id = ? AND user_id = ?", (inv_id, viewer_id))
     conn.commit()
     conn.close()
-    return redirect(url_for("money_view", partner_id=partner_id))
+    return redirect(url_for("money_view", partner_id=viewer_id))
 
 
 @app.route("/savings-goal/update", methods=["POST"])
 def update_savings_goal():
-    partner_id = request.form.get("partner_id")
+    viewer_id = session.get("logged_in_user", "imran")
     goal_name = request.form.get("goal_name", "").strip()
     target_str = request.form.get("target_amount", "").strip()
 
@@ -554,16 +841,16 @@ def update_savings_goal():
         target = float(target_str)
     except ValueError:
         flash("Invalid target number.", "danger")
-        return redirect(url_for("money_view", partner_id=partner_id))
+        return redirect(url_for("money_view", partner_id=viewer_id))
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE users SET savings_goal_name = ?, savings_goal_target = ? WHERE id = ?", (goal_name, target, partner_id))
+    cursor.execute("UPDATE users SET savings_goal_name = ?, savings_goal_target = ? WHERE id = ?", (goal_name, target, viewer_id))
     conn.commit()
     conn.close()
 
     flash("Target updated.", "success")
-    return redirect(url_for("money_view", partner_id=partner_id))
+    return redirect(url_for("money_view", partner_id=viewer_id))
 
 
 @app.route("/export-csv")
@@ -607,136 +894,6 @@ def export_csv():
 
 
 # ============================================================================
-# Weekly Tasks
-# ============================================================================
-
-@app.route("/tasks/<partner_id>")
-def tasks_view(partner_id):
-    if partner_id not in ("imran", "mikiyas"):
-        return redirect(url_for("tasks_view", partner_id="imran"))
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM users WHERE id = ?", (partner_id,))
-    partner = cursor.fetchone()
-
-    today = date.today()
-    today_str = today.strftime("%Y-%m-%d")
-    current_week_id = f"{today.year}-W{today.isocalendar()[1]:02d}"
-
-    cursor.execute("SELECT DISTINCT week_identifier FROM tasks WHERE user_id = ? ORDER BY week_identifier DESC", (partner_id,))
-    existing_weeks = [r[0] for r in cursor.fetchall()]
-    if current_week_id not in existing_weeks:
-        existing_weeks.insert(0, current_week_id)
-
-    selected_week = request.args.get("week", current_week_id)
-    if selected_week not in existing_weeks:
-        selected_week = current_week_id
-
-    cursor.execute("SELECT * FROM tasks WHERE user_id = ? AND week_identifier = ? ORDER BY due_date ASC, id ASC", (partner_id, selected_week))
-    all_tasks = cursor.fetchall()
-
-    today_tasks = [t for t in all_tasks if t["due_date"] == today_str]
-    total_tasks_count = len(all_tasks)
-    done_tasks_count = len([t for t in all_tasks if t["is_done"]])
-    completion_rate = int((done_tasks_count / total_tasks_count * 100)) if total_tasks_count > 0 else 0
-    streak_count = calculate_task_streak(conn, partner_id)
-
-    conn.close()
-
-    return render_template(
-        "tasks.html",
-        active_page="tasks",
-        partner=partner,
-        selected_week=selected_week,
-        current_week_id=current_week_id,
-        available_weeks=existing_weeks,
-        all_tasks=all_tasks,
-        today_tasks=today_tasks,
-        total_tasks_count=total_tasks_count,
-        done_tasks_count=done_tasks_count,
-        completion_rate=completion_rate,
-        streak_count=streak_count
-    )
-
-
-@app.route("/tasks/add", methods=["POST"])
-def add_task():
-    partner_id = request.form.get("partner_id")
-    week_id = request.form.get("week_id")
-    title = request.form.get("title", "").strip()
-    details = request.form.get("details", "").strip()
-    due_date = request.form.get("due_date", "").strip()
-
-    if not title or not due_date:
-        flash("Milestone title and due date are required.", "danger")
-        return redirect(url_for("tasks_view", partner_id=partner_id, week=week_id))
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-    INSERT INTO tasks (user_id, week_identifier, title, details, due_date, is_done)
-    VALUES (?, ?, ?, ?, ?, 0)
-    """, (partner_id, week_id, title, details, due_date))
-    conn.commit()
-    conn.close()
-
-    flash(f"Task '{title}' scheduled.", "success")
-    return redirect(url_for("tasks_view", partner_id=partner_id, week=week_id))
-
-
-@app.route("/tasks/toggle/<int:task_id>", methods=["POST"])
-def toggle_task_done(task_id):
-    partner_id = request.form.get("partner_id")
-    week_id = request.form.get("week_id")
-    today_str = date.today().strftime("%Y-%m-%d")
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT is_done FROM tasks WHERE id = ? AND user_id = ?", (task_id, partner_id))
-    task = cursor.fetchone()
-    if task:
-        new_status = 0 if task["is_done"] else 1
-        done_date = today_str if new_status == 1 else None
-        cursor.execute("UPDATE tasks SET is_done = ?, done_date = ? WHERE id = ?", (new_status, done_date, task_id))
-        conn.commit()
-    conn.close()
-
-    return redirect(url_for("tasks_view", partner_id=partner_id, week=week_id))
-
-
-@app.route("/tasks/delete/<int:task_id>", methods=["POST"])
-def delete_task(task_id):
-    partner_id = request.form.get("partner_id")
-    week_id = request.form.get("week_id")
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM tasks WHERE id = ? AND user_id = ?", (task_id, partner_id))
-    conn.commit()
-    conn.close()
-
-    flash("Task removed.", "info")
-    return redirect(url_for("tasks_view", partner_id=partner_id, week=week_id))
-
-
-@app.route("/tasks/archive-week", methods=["POST"])
-def archive_week():
-    partner_id = request.form.get("partner_id")
-    week_id = request.form.get("week_id")
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE tasks SET is_archived = 1 WHERE user_id = ? AND week_identifier = ?", (partner_id, week_id))
-    conn.commit()
-    check_and_apply_penalties(conn)
-    conn.close()
-
-    flash(f"Week {week_id} archived.", "success")
-    return redirect(url_for("tasks_view", partner_id=partner_id))
-
-
-# ============================================================================
 # Penalties Ledger
 # ============================================================================
 
@@ -745,6 +902,7 @@ def penalties_view():
     conn = get_db_connection()
     check_and_apply_penalties(conn)
     cursor = conn.cursor()
+    viewer_id = session.get("logged_in_user", "imran")
 
     cursor.execute("SELECT * FROM users WHERE id = 'imran'")
     partner_a = cursor.fetchone()
@@ -754,13 +912,11 @@ def penalties_view():
 
     cursor.execute("SELECT * FROM penalties WHERE user_id = 'imran' AND status = 'Pending' ORDER BY id DESC")
     a_pending_penalties = cursor.fetchall()
-
     cursor.execute("SELECT * FROM penalties WHERE user_id = 'imran' AND status = 'Completed' ORDER BY completed_date DESC, id DESC LIMIT 10")
     a_completed_penalties = cursor.fetchall()
 
     cursor.execute("SELECT * FROM penalties WHERE user_id = 'mikiyas' AND status = 'Pending' ORDER BY id DESC")
     b_pending_penalties = cursor.fetchall()
-
     cursor.execute("SELECT * FROM penalties WHERE user_id = 'mikiyas' AND status = 'Completed' ORDER BY completed_date DESC, id DESC LIMIT 10")
     b_completed_penalties = cursor.fetchall()
 
@@ -776,7 +932,8 @@ def penalties_view():
         a_pending_count=len(a_pending_penalties),
         b_pending_penalties=b_pending_penalties,
         b_completed_penalties=b_completed_penalties,
-        b_pending_count=len(b_pending_penalties)
+        b_pending_count=len(b_pending_penalties),
+        viewer_id=viewer_id
     )
 
 
@@ -856,4 +1013,4 @@ def settings_view():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=False)

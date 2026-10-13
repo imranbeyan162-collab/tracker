@@ -1,7 +1,6 @@
 """
 Database utilities and helper functions for Imran & Mikiyas Venture Tracker.
-Handles SQLite connection, schema definition, and query helpers.
-Zero dummy data - clean state for user input.
+Handles SQLite connection, schema definition, strict privacy filters, and AI proof verification.
 """
 
 import sqlite3
@@ -34,7 +33,7 @@ def get_db_connection():
 
 
 def init_db(seed=False):
-    """Initializes tables with clean state (no dummy records)."""
+    """Initializes tables with clean state and AI verification fields."""
     os.makedirs(DB_DIR, exist_ok=True)
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -68,7 +67,7 @@ def init_db(seed=False):
     )
     """)
 
-    # 3. Recurring and one-off Bills table
+    # 3. Recurring Bills table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS bills (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,17 +99,24 @@ def init_db(seed=False):
     )
     """)
 
-    # 5. Weekly Tasks table
+    # 5. Tasks table (with task_type: shared or personal, plus AI verification fields)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
+        task_type TEXT NOT NULL DEFAULT 'personal' CHECK(task_type IN ('shared', 'personal')),
         week_identifier TEXT NOT NULL,
         title TEXT NOT NULL,
         details TEXT,
         due_date TEXT NOT NULL,
+        target_time TEXT,
         is_done INTEGER NOT NULL DEFAULT 0,
         done_date TEXT,
+        proof_image TEXT,
+        proof_text TEXT,
+        ai_verified INTEGER NOT NULL DEFAULT 0,
+        ai_status TEXT NOT NULL DEFAULT 'Unverified',
+        ai_feedback TEXT,
         is_archived INTEGER NOT NULL DEFAULT 0,
         consequence_applied INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -135,7 +141,7 @@ def init_db(seed=False):
     )
     """)
 
-    # 7. Goals table (Shared goals and personal goals for Imran & Mikiyas)
+    # 7. Goals table (with strict privacy and AI verification support)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS goals (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,34 +152,64 @@ def init_db(seed=False):
         target_date TEXT,
         category TEXT DEFAULT 'General',
         is_completed INTEGER NOT NULL DEFAULT 0,
+        proof_image TEXT,
+        proof_text TEXT,
+        ai_verified INTEGER NOT NULL DEFAULT 0,
+        ai_status TEXT NOT NULL DEFAULT 'Unverified',
+        ai_feedback TEXT,
         reminder_enabled INTEGER NOT NULL DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
+    # Ensure column migrations for existing databases
+    task_cols = [
+        ("task_type", "TEXT NOT NULL DEFAULT 'personal'"),
+        ("target_time", "TEXT"),
+        ("proof_image", "TEXT"),
+        ("proof_text", "TEXT"),
+        ("ai_verified", "INTEGER NOT NULL DEFAULT 0"),
+        ("ai_status", "TEXT NOT NULL DEFAULT 'Unverified'"),
+        ("ai_feedback", "TEXT")
+    ]
+    for col, col_type in task_cols:
+        try:
+            cursor.execute(f"ALTER TABLE tasks ADD COLUMN {col} {col_type}")
+        except sqlite3.OperationalError:
+            pass
+
+    goal_cols = [
+        ("target_time", "TEXT"),
+        ("target_date", "TEXT"),
+        ("category", "TEXT DEFAULT 'General'"),
+        ("proof_image", "TEXT"),
+        ("proof_text", "TEXT"),
+        ("ai_verified", "INTEGER NOT NULL DEFAULT 0"),
+        ("ai_status", "TEXT NOT NULL DEFAULT 'Unverified'"),
+        ("ai_feedback", "TEXT"),
+        ("reminder_enabled", "INTEGER NOT NULL DEFAULT 1")
+    ]
+    for col, col_type in goal_cols:
+        try:
+            cursor.execute(f"ALTER TABLE goals ADD COLUMN {col} {col_type}")
+        except sqlite3.OperationalError:
+            pass
+
     conn.commit()
 
-    # Ensure Imran and Mikiyas exist with requested default credentials
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
         create_clean_users(conn)
-    else:
-        # Check if users need migration to Imran & Mikiyas
-        cursor.execute("SELECT id FROM users")
-        u_ids = [r[0] for r in cursor.fetchall()]
-        if 'imran' not in u_ids or 'mikiyas' not in u_ids:
-            # Recreate with Imran & Mikiyas cleanly
-            cursor.execute("DELETE FROM users")
-            create_clean_users(conn)
 
     conn.close()
 
 
+
 def create_clean_users(conn):
-    """Creates the two partners with the specified master password."""
+    """Creates Imran and Mikiyas with the agreed master access password."""
     cursor = conn.cursor()
-    # Default master password: imranandmicas@gmail.com
-    master_hash = generate_password_hash("imranandmicas@gmail.com")
+    # Primary password: imran&mikiyas@gmail
+    master_hash = generate_password_hash("imran&mikiyas@gmail")
 
     cursor.execute("""
     INSERT INTO users (id, name, pin_hash, default_consequence, savings_goal_name, savings_goal_target, currency)
@@ -185,7 +221,7 @@ def create_clean_users(conn):
 
 
 def check_and_apply_penalties(conn):
-    """Checks for tasks whose due_date is in the past and is_done == 0."""
+    """Checks for tasks past due and triggers consequences."""
     today_str = date.today().strftime("%Y-%m-%d")
     cursor = conn.cursor()
 
@@ -199,7 +235,7 @@ def check_and_apply_penalties(conn):
 
     for task in overdue_tasks:
         reason = f"Missed task: '{task['title']}' (Due {task['due_date']})"
-        consequence = task['default_consequence'] or "Agreed accountability consequence"
+        consequence = task['default_consequence'] or "Agreed accountability task"
         cursor.execute("""
         INSERT INTO penalties (user_id, task_id, consequence, reason, status, created_date)
         VALUES (?, ?, ?, ?, 'Pending', ?)
@@ -218,7 +254,10 @@ def calculate_task_streak(conn, user_id):
     
     for day_offset in range(1, 30):
         check_date = (today - timedelta(days=day_offset)).strftime("%Y-%m-%d")
-        cursor.execute("SELECT COUNT(*), SUM(is_done) FROM tasks WHERE user_id = ? AND due_date = ?", (user_id, check_date))
+        cursor.execute("""
+        SELECT COUNT(*), SUM(is_done) FROM tasks 
+        WHERE (user_id = ? OR task_type = 'shared') AND due_date = ?
+        """, (user_id, check_date))
         total, done = cursor.fetchone()
         
         if total == 0:
@@ -229,7 +268,10 @@ def calculate_task_streak(conn, user_id):
             break
             
     today_str = today.strftime("%Y-%m-%d")
-    cursor.execute("SELECT COUNT(*), SUM(is_done) FROM tasks WHERE user_id = ? AND due_date = ?", (user_id, today_str))
+    cursor.execute("""
+    SELECT COUNT(*), SUM(is_done) FROM tasks 
+    WHERE (user_id = ? OR task_type = 'shared') AND due_date = ?
+    """, (user_id, today_str))
     total_today, done_today = cursor.fetchone()
     if total_today > 0 and done_today == total_today:
         streak += 1
@@ -274,7 +316,7 @@ def get_user_financial_totals(conn, user_id=None):
 
 
 def get_chart_data(conn, user_id=None):
-    """Aggregates data for monthly charts and expense categories."""
+    """Aggregates data for charts."""
     cursor = conn.cursor()
     params = []
     user_filter = ""
@@ -324,11 +366,33 @@ def get_chart_data(conn, user_id=None):
     }
 
 
-def get_goals(conn, goal_type=None):
-    """Fetches goals filtered by type (shared, imran, mikiyas) or all."""
+def get_private_goals(conn, current_user_id):
+    """
+    Strict Privacy Rule:
+    Returns Shared Goals PLUS the current user's personal goals ONLY.
+    Never exposes the other partner's personal goals!
+    """
     cursor = conn.cursor()
-    if goal_type:
-        cursor.execute("SELECT * FROM goals WHERE goal_type = ? ORDER BY is_completed ASC, id DESC", (goal_type,))
-    else:
-        cursor.execute("SELECT * FROM goals ORDER BY is_completed ASC, id DESC")
+    # Shared goals
+    cursor.execute("SELECT * FROM goals WHERE goal_type = 'shared' ORDER BY is_completed ASC, id DESC")
+    shared_goals = cursor.fetchall()
+
+    # User's personal goals only
+    cursor.execute("SELECT * FROM goals WHERE goal_type = ? ORDER BY is_completed ASC, id DESC", (current_user_id,))
+    personal_goals = cursor.fetchall()
+
+    return shared_goals, personal_goals
+
+
+def get_private_tasks(conn, current_user_id, week_id):
+    """
+    Strict Privacy Rule:
+    Returns Shared Tasks PLUS the current user's personal tasks ONLY.
+    """
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT * FROM tasks 
+    WHERE week_identifier = ? AND (task_type = 'shared' OR user_id = ?)
+    ORDER BY due_date ASC, id ASC
+    """, (week_id, current_user_id))
     return cursor.fetchall()

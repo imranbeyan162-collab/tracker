@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}Goal Architecture & Accountability - Imran & Mikiyas{% endblock %}
+{% block title %}Goal Architecture &amp; AI Verification - Imran &amp; Mikiyas{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+<div style="margin-bottom: 1.75rem; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
   <div>
-    <h1 style="font-size: 1.6rem; font-weight: 700;">Goal Architecture &amp; Accountability</h1>
-    <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 0.25rem;">
-      Unified tracking for shared venture targets and personal discipline commitments.
+    <h1 style="font-size: 1.6rem; font-weight: 700;">Goal Architecture &amp; AI Verification</h1>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">
+      Private personal goals for {{ current_user.name }} and shared venture objectives. Proof is audited by AI before completion.
     </p>
   </div>
   <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
     <button id="requestNotificationBtn" class="btn btn-outline btn-sm">
-      Enable Desktop Reminders
+      Enable Alerts &amp; Sound
     </button>
     <button class="btn btn-primary btn-sm" data-open-modal="addGoalModal">
       + New Goal Target
@@ -20,35 +20,35 @@
   </div>
 </div>
 
-<!-- Focus & Anti-Distraction Protocol Card -->
+<!-- Focus & Anti-Distraction Protocol HUD -->
 <div class="card" style="margin-bottom: 1.75rem; background: linear-gradient(135deg, #111827, #172033); border-color: #2b3952;">
   <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
     <div>
       <div style="font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent-indigo); margin-bottom:0.25rem;">
-        Focus Protocol &amp; Automated Accountability
+        Anti-Distraction Shield &amp; Accountability
       </div>
       <h3 style="font-size:1.05rem; font-weight:600; margin-bottom:0.4rem;">
-        Anti-Distraction Reminder Engine Active
+        AI Proof Validator &amp; Scheduled Reminder Engine
       </h3>
-      <p style="font-size:0.85rem; color:var(--text-muted); max-width:760px; line-height:1.45;">
-        When target deadlines or scheduled checkpoints (e.g. sleep time at 07:00 AM) arrive, the system issues audible chimes and interactive check-in popups. If distracting apps (like TikTok or social media feeds) interfere with goal execution, launch the local <code>run_distraction_guard.bat</code> daemon to terminate non-essential processes automatically.
+      <p style="font-size:0.85rem; color:var(--text-muted); max-width:800px; line-height:1.45;">
+        Goals require verifiable proof (e.g. screenshot of client payment, deployed site, or habit metric). When you submit proof, the AI inspects the image to validate completion. To stop TikTok or social media scrolling from distracting you, double-click <code>run_distraction_guard.bat</code> on your PC to force-close distraction windows automatically!
       </p>
     </div>
-    <div>
+    <div style="display:flex; gap:0.5rem;">
       <span class="badge" style="background:rgba(16, 185, 129, 0.15); color:#34d399; padding:0.4rem 0.8rem; border:1px solid rgba(16, 185, 129, 0.3);">
-        Reminders Engine Ready
+        AI Engine Active
       </span>
     </div>
   </div>
 </div>
 
-<!-- Three Column Grid: Shared, Imran, Mikiyas -->
-<div class="grid-3">
+<!-- Strict Two-Column Privacy Grid: Shared Goals & Current User Personal Goals ONLY -->
+<div class="grid-2">
   
-  <!-- 1. Shared Goals Column -->
+  <!-- 1. Shared Venture Goals -->
   <div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:1px solid var(--border-color);">
-      <h3 style="font-size:1rem; font-weight:600;">Shared Venture Goals</h3>
+      <h3 style="font-size:1rem; font-weight:600; color:#818cf8;">Shared Venture Goals (Both of Us)</h3>
       <span class="badge" style="background:#1e293b; color:#94a3b8;">{{ shared_goals|length }} Active</span>
     </div>
 
@@ -61,9 +61,21 @@
              data-goal-title="{{ goal.title|escape }}" 
              data-goal-completed="{{ goal.is_completed }}">
           <div style="flex:1;">
-            <div class="goal-title">{{ goal.title }}</div>
+            <div class="goal-title">
+              {{ goal.title }}
+              {% if goal.ai_status == 'Approved' %}
+                <span class="badge badge-paid" style="margin-left:0.4rem;">AI Verified ✓</span>
+              {% elif goal.ai_status == 'Rejected' %}
+                <span class="badge badge-unpaid" style="margin-left:0.4rem;">AI Rejected ✗</span>
+              {% endif %}
+            </div>
             {% if goal.description %}
               <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">{{ goal.description }}</div>
+            {% endif %}
+            {% if goal.ai_feedback %}
+              <div style="font-size:0.78rem; color:{% if goal.ai_status == 'Approved' %}var(--accent-emerald){% else %}var(--accent-rose){% endif %}; margin-top:0.35rem; padding:0.4rem; background:#0b0f19; border-radius:4px;">
+                <strong>AI Audit:</strong> {{ goal.ai_feedback }}
+              </div>
             {% endif %}
             <div class="goal-meta">
               {% if goal.target_time %}<span>Time: {{ goal.target_time }}</span>{% endif %}
@@ -71,14 +83,12 @@
               <span class="badge" style="background:#1e293b; color:#cbd5e1;">{{ goal.category }}</span>
             </div>
           </div>
-          <div style="display:flex; flex-direction:column; gap:0.35rem; align-items:flex-end;">
-            <form action="{{ url_for('toggle_goal_status', goal_id=goal.id) }}" method="POST">
-              <button type="submit" class="btn btn-sm {% if goal.is_completed %}btn-secondary{% else %}btn-success{% endif %}" style="font-size:0.75rem;">
-                {% if goal.is_completed %}Completed{% else %}Mark Done{% endif %}
-              </button>
-            </form>
+          <div style="display:flex; flex-direction:column; gap:0.4rem; align-items:flex-end;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="openGoalProofModal({{ goal.id }}, '{{ goal.title|escape }}')">
+              Submit Proof
+            </button>
             <form action="{{ url_for('delete_goal', goal_id=goal.id) }}" method="POST">
-              <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" style="font-size:0.7rem; padding:0.15rem 0.4rem;">
+              <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" style="font-size:0.7rem; padding:0.2rem 0.5rem;">
                 Remove
               </button>
             </form>
@@ -87,20 +97,22 @@
       {% endfor %}
     {% else %}
       <div style="padding:2rem 1rem; border:1px dashed var(--border-color); border-radius:var(--radius-md); text-align:center; color:var(--text-subtle); font-size:0.85rem;">
-        No shared goals recorded yet.
+        No shared goals recorded yet. Click "+ New Goal Target" and select "Shared".
       </div>
     {% endif %}
   </div>
 
-  <!-- 2. Imran's Personal Goals Column -->
+  <!-- 2. Personal Goals (Strictly Private to Logged-in Partner) -->
   <div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:1px solid var(--border-color);">
-      <h3 style="font-size:1rem; font-weight:600; color:#818cf8;">Imran's Personal Goals</h3>
-      <span class="badge" style="background:#1e293b; color:#94a3b8;">{{ imran_goals|length }} Active</span>
+      <h3 style="font-size:1rem; font-weight:600; color:#34d399;">
+        My Personal Goals (Private to {{ current_user.name }})
+      </h3>
+      <span class="badge" style="background:#1e293b; color:#94a3b8;">{{ personal_goals|length }} Active</span>
     </div>
 
-    {% if imran_goals %}
-      {% for goal in imran_goals %}
+    {% if personal_goals %}
+      {% for goal in personal_goals %}
         <div class="goal-card {% if goal.is_completed %}completed{% endif %}" 
              data-goal-id="{{ goal.id }}" 
              data-goal-time="{{ goal.target_time or '' }}" 
@@ -108,9 +120,21 @@
              data-goal-title="{{ goal.title|escape }}" 
              data-goal-completed="{{ goal.is_completed }}">
           <div style="flex:1;">
-            <div class="goal-title">{{ goal.title }}</div>
+            <div class="goal-title">
+              {{ goal.title }}
+              {% if goal.ai_status == 'Approved' %}
+                <span class="badge badge-paid" style="margin-left:0.4rem;">AI Verified ✓</span>
+              {% elif goal.ai_status == 'Rejected' %}
+                <span class="badge badge-unpaid" style="margin-left:0.4rem;">AI Rejected ✗</span>
+              {% endif %}
+            </div>
             {% if goal.description %}
               <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">{{ goal.description }}</div>
+            {% endif %}
+            {% if goal.ai_feedback %}
+              <div style="font-size:0.78rem; color:{% if goal.ai_status == 'Approved' %}var(--accent-emerald){% else %}var(--accent-rose){% endif %}; margin-top:0.35rem; padding:0.4rem; background:#0b0f19; border-radius:4px;">
+                <strong>AI Audit:</strong> {{ goal.ai_feedback }}
+              </div>
             {% endif %}
             <div class="goal-meta">
               {% if goal.target_time %}<span>Time: {{ goal.target_time }}</span>{% endif %}
@@ -118,14 +142,12 @@
               <span class="badge" style="background:#1e293b; color:#cbd5e1;">{{ goal.category }}</span>
             </div>
           </div>
-          <div style="display:flex; flex-direction:column; gap:0.35rem; align-items:flex-end;">
-            <form action="{{ url_for('toggle_goal_status', goal_id=goal.id) }}" method="POST">
-              <button type="submit" class="btn btn-sm {% if goal.is_completed %}btn-secondary{% else %}btn-success{% endif %}" style="font-size:0.75rem;">
-                {% if goal.is_completed %}Completed{% else %}Mark Done{% endif %}
-              </button>
-            </form>
+          <div style="display:flex; flex-direction:column; gap:0.4rem; align-items:flex-end;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="openGoalProofModal({{ goal.id }}, '{{ goal.title|escape }}')">
+              Submit Proof
+            </button>
             <form action="{{ url_for('delete_goal', goal_id=goal.id) }}" method="POST">
-              <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" style="font-size:0.7rem; padding:0.15rem 0.4rem;">
+              <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" style="font-size:0.7rem; padding:0.2rem 0.5rem;">
                 Remove
               </button>
             </form>
@@ -134,58 +156,44 @@
       {% endfor %}
     {% else %}
       <div style="padding:2rem 1rem; border:1px dashed var(--border-color); border-radius:var(--radius-md); text-align:center; color:var(--text-subtle); font-size:0.85rem;">
-        No personal goals for Imran yet.
+        No personal goals recorded yet. Click "+ New Goal Target" to add your private commitments.
       </div>
     {% endif %}
   </div>
 
-  <!-- 3. Mikiyas's Personal Goals Column -->
-  <div>
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:1px solid var(--border-color);">
-      <h3 style="font-size:1rem; font-weight:600; color:#34d399;">Mikiyas's Personal Goals</h3>
-      <span class="badge" style="background:#1e293b; color:#94a3b8;">{{ mikiyas_goals|length }} Active</span>
+</div>
+
+<!-- AI Proof Submission Modal -->
+<div class="modal-overlay" id="goalProofModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">AI Evidence Audit &amp; Verification</h3>
+      <button class="modal-close" data-close-modal="goalProofModal">&times;</button>
     </div>
+    <form id="goalProofForm" action="" method="POST" enctype="multipart/form-data">
+      <div class="modal-body">
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;" id="goalProofTitleDisplay">
+          Upload photo or screenshot proof. The AI will inspect it against your goal criteria to approve completion.
+        </p>
 
-    {% if mikiyas_goals %}
-      {% for goal in mikiyas_goals %}
-        <div class="goal-card {% if goal.is_completed %}completed{% endif %}" 
-             data-goal-id="{{ goal.id }}" 
-             data-goal-time="{{ goal.target_time or '' }}" 
-             data-goal-date="{{ goal.target_date or '' }}" 
-             data-goal-title="{{ goal.title|escape }}" 
-             data-goal-completed="{{ goal.is_completed }}">
-          <div style="flex:1;">
-            <div class="goal-title">{{ goal.title }}</div>
-            {% if goal.description %}
-              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">{{ goal.description }}</div>
-            {% endif %}
-            <div class="goal-meta">
-              {% if goal.target_time %}<span>Time: {{ goal.target_time }}</span>{% endif %}
-              {% if goal.target_date %}<span>Target: {{ goal.target_date }}</span>{% endif %}
-              <span class="badge" style="background:#1e293b; color:#cbd5e1;">{{ goal.category }}</span>
-            </div>
-          </div>
-          <div style="display:flex; flex-direction:column; gap:0.35rem; align-items:flex-end;">
-            <form action="{{ url_for('toggle_goal_status', goal_id=goal.id) }}" method="POST">
-              <button type="submit" class="btn btn-sm {% if goal.is_completed %}btn-secondary{% else %}btn-success{% endif %}" style="font-size:0.75rem;">
-                {% if goal.is_completed %}Completed{% else %}Mark Done{% endif %}
-              </button>
-            </form>
-            <form action="{{ url_for('delete_goal', goal_id=goal.id) }}" method="POST">
-              <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" style="font-size:0.7rem; padding:0.15rem 0.4rem;">
-                Remove
-              </button>
-            </form>
-          </div>
+        <div class="form-group">
+          <label class="form-label">Screenshot / Photo Proof *</label>
+          <input type="file" name="proof_image" class="form-input" accept="image/*" required>
+          <div class="form-hint">Attach payment receipt, deployed website screenshot, code commit, or sleep tracker screenshot.</div>
         </div>
-      {% endfor %}
-    {% else %}
-      <div style="padding:2rem 1rem; border:1px dashed var(--border-color); border-radius:var(--radius-md); text-align:center; color:var(--text-subtle); font-size:0.85rem;">
-        No personal goals for Mikiyas yet.
-      </div>
-    {% endif %}
-  </div>
 
+        <div class="form-group">
+          <label class="form-label">Proof Description / Explanation *</label>
+          <textarea name="proof_text" class="form-textarea" rows="2" placeholder="Explain how this evidence proves the goal was achieved..." required></textarea>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+          <button type="button" class="btn btn-secondary" data-close-modal="goalProofModal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Run AI Verification Audit</button>
+        </div>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- Focus Screen Alert Modal -->
@@ -199,7 +207,7 @@
       <div style="width:50px; height:50px; border-radius:50%; background:rgba(244,63,94,0.15); border:1px solid #f43f5e; margin:0 auto 1.25rem auto; display:flex; align-items:center; justify-content:center;">
         <div style="width:16px; height:16px; background:#f43f5e; border-radius:2px;"></div>
       </div>
-      <h3 style="font-size:1.15rem; font-weight:700; margin-bottom:0.6rem;">Goal Milestone Check-In</h3>
+      <h3 style="font-size:1.15rem; font-weight:700; margin-bottom:0.6rem;">Milestone Time Check-In</h3>
       <p id="focusAlertMessage" style="color:var(--text-muted); font-size:0.9rem; line-height:1.45; margin-bottom:1.5rem;">
         Have you completed your scheduled commitments? Stop scrolling distractions!
       </p>
@@ -222,27 +230,26 @@
         <div class="form-group">
           <label class="form-label">Goal Ownership *</label>
           <select name="goal_type" class="form-select" required>
-            <option value="shared">Shared Venture Goal (Imran &amp; Mikiyas Together)</option>
-            <option value="imran" {% if current_user and current_user.id == 'imran' %}selected{% endif %}>Imran's Personal Goal</option>
-            <option value="mikiyas" {% if current_user and current_user.id == 'mikiyas' %}selected{% endif %}>Mikiyas's Personal Goal</option>
+            <option value="personal">My Personal Goal (Private to {{ current_user.name }})</option>
+            <option value="shared">Shared Goal (Both of Us)</option>
           </select>
         </div>
 
         <div class="form-group">
           <label class="form-label">Goal Description / Title *</label>
-          <input type="text" name="title" class="form-input" placeholder="e.g. Sleep by 07:00 AM, Ship version 1, Run 5km" required>
+          <input type="text" name="title" class="form-input" placeholder="e.g. Build website & sell for $500, Sleep by 07:00 AM" required>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Detailed Notes / Criteria (Optional)</label>
-          <textarea name="description" class="form-textarea" rows="2" placeholder="Specific guidelines or milestones"></textarea>
+          <label class="form-label">Criteria / Notes (Optional)</label>
+          <textarea name="description" class="form-textarea" rows="2" placeholder="Specific proof criteria the AI will check"></textarea>
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Target Time (HH:MM)</label>
-            <input type="time" name="target_time" class="form-input" placeholder="e.g. 07:00">
-            <div class="form-hint">Used for automated daily reminder alerts.</div>
+            <input type="time" name="target_time" class="form-input">
+            <div class="form-hint">Used for automated reminder chimes.</div>
           </div>
           <div class="form-group">
             <label class="form-label">Target Date</label>
@@ -253,10 +260,10 @@
         <div class="form-group">
           <label class="form-label">Category</label>
           <select name="category" class="form-select">
-            <option value="Habit / Sleep">Habit / Sleep Schedule</option>
             <option value="Venture / Revenue">Venture / Revenue Target</option>
-            <option value="Health / Fitness">Health &amp; Fitness</option>
-            <option value="Deep Focus">Deep Focus &amp; Study</option>
+            <option value="Habit / Sleep">Habit / Sleep Schedule</option>
+            <option value="Deep Focus">Deep Focus &amp; Coding</option>
+            <option value="Fitness">Health &amp; Fitness</option>
             <option value="General">General</option>
           </select>
         </div>
@@ -269,4 +276,15 @@
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openGoalProofModal(goalId, title) {
+  const form = document.getElementById('goalProofForm');
+  form.action = `/goals/verify-proof/${goalId}`;
+  document.getElementById('goalProofTitleDisplay').innerText = `Auditing evidence for goal: "${title}"`;
+  openModal('goalProofModal');
+}
+</script>
 {% endblock %}
