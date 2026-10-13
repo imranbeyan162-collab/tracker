@@ -60,12 +60,13 @@ DEFAULT_MASTER_PASSWORDS = [
 @app.before_request
 def require_authentication_gate():
     """Gatekeeper: Blocks all unauthenticated traffic behind the login portal."""
-    allowed_paths = ("/login", "/favicon.ico", "/manifest.json", "/sw.js")
+    allowed_paths = ("/login", "/favicon.ico", "/manifest.json", "/sw.js", "/api/index")
     if request.path.startswith("/static/") or request.path in allowed_paths:
         return None
 
     if not session.get("logged_in_user"):
         return redirect(url_for("login"))
+
 
 
 @app.context_processor
@@ -118,7 +119,15 @@ def serve_proof_upload(filename):
 # Security Gatekeeper & Login
 # ============================================================================
 
+@app.route("/api/index", methods=["GET", "POST"])
+def api_index_endpoint():
+    """Fallback handler for Vercel rewrites to ensure /api/index never 404s."""
+    if not session.get("logged_in_user"):
+        return redirect(url_for("login"))
+    return redirect(url_for("index"))
+
 @app.route("/login", methods=["GET", "POST"])
+
 def login():
     """Access portal login asking for the private password."""
     if request.method == "GET":
