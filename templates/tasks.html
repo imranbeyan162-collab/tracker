@@ -1,23 +1,22 @@
 {% extends "base.html" %}
 
-{% block title %}{{ partner.name }} Weekly Tasks - Partner Tracker{% endblock %}
+{% block title %}{{ partner.name }} Execution Board - Imran & Mikiyas{% endblock %}
 
 {% block content %}
-<!-- Partner Sub-Tabs & Week Navigation -->
 <div class="partner-tabs">
   <div class="tab-group">
-    <a href="{{ url_for('tasks_view', partner_id='partner_a', week=selected_week) }}" class="tab-btn {% if partner.id == 'partner_a' %}active{% endif %}">
-      Partner A's Tasks
+    <a href="{{ url_for('tasks_view', partner_id='imran', week=selected_week) }}" class="tab-btn {% if partner.id == 'imran' %}active{% endif %}">
+      Imran
     </a>
-    <a href="{{ url_for('tasks_view', partner_id='partner_b', week=selected_week) }}" class="tab-btn {% if partner.id == 'partner_b' %}active{% endif %}">
-      Partner B's Tasks
+    <a href="{{ url_for('tasks_view', partner_id='mikiyas', week=selected_week) }}" class="tab-btn {% if partner.id == 'mikiyas' %}active{% endif %}">
+      Mikiyas
     </a>
   </div>
 
   <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
     <!-- Archive Selector -->
-    <form method="GET" action="{{ url_for('tasks_view', partner_id=partner.id) }}" style="display:inline-flex; align-items:center; gap:0.3rem;">
-      <select name="week" class="form-select" onchange="this.form.submit()" style="padding:0.35rem 0.6rem; font-size:0.85rem;">
+    <form method="GET" action="{{ url_for('tasks_view', partner_id=partner.id) }}" style="display:inline-flex; align-items:center;">
+      <select name="week" class="form-select" onchange="this.form.submit()" style="padding:0.35rem 0.65rem; font-size:0.8rem;">
         {% for w in available_weeks %}
           <option value="{{ w }}" {% if w == selected_week %}selected{% endif %}>
             Week {{ w }}{% if w == current_week_id %} (Current){% endif %}
@@ -26,198 +25,168 @@
       </select>
     </form>
 
-    {% if can_edit and selected_week == current_week_id %}
-      <button class="btn btn-primary btn-sm" data-open-modal="addTaskModal">
-        ➕ Add Task
+    <button class="btn btn-primary btn-sm" data-open-modal="addTaskModal">
+      + New Task
+    </button>
+    <form action="{{ url_for('archive_week') }}" method="POST" style="display:inline;">
+      <input type="hidden" name="partner_id" value="{{ partner.id }}">
+      <input type="hidden" name="week_id" value="{{ selected_week }}">
+      <button type="submit" class="btn btn-secondary btn-sm delete-confirm-btn" data-confirm-msg="Archive this week and advance to the next? Unfinished overdue tasks will trigger accountability penalties.">
+        Archive Week
       </button>
-      <form action="{{ url_for('archive_week') }}" method="POST" style="display:inline;">
-        <input type="hidden" name="partner_id" value="{{ partner.id }}">
-        <input type="hidden" name="week_id" value="{{ selected_week }}">
-        <button type="submit" class="btn btn-secondary btn-sm delete-confirm-btn" data-confirm-msg="Start a fresh week? Any incomplete tasks past due will trigger consequences!">
-          📦 Archive &amp; Start New Week
-        </button>
-      </form>
-    {% elif not can_edit %}
-      <button class="btn btn-secondary btn-sm" onclick="promptPartnerLogin('{{ partner.id }}')">
-        🔒 Log in to Edit
-      </button>
-    {% endif %}
+    </form>
   </div>
 </div>
 
-<!-- Page Title & Streak -->
-<div style="margin-bottom: 1.5rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+<!-- Header & Streak -->
+<div style="margin-bottom: 1.75rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
   <div>
-    <h1 style="font-size:1.6rem; font-weight:800;">
-      ✅ {{ partner.name }}'s Weekly Tasks
+    <h1 style="font-size:1.5rem; font-weight:700;">
+      {{ partner.name }}'s Weekly Execution
     </h1>
-    <p style="font-size:0.9rem; color:var(--neutral-gray);">
-      {% if can_edit %}
-        <span style="color:var(--income-green); font-weight:600;">✓ Full Editing Access</span> — Click checkboxes to update task progress.
-      {% else %}
-        <span style="color:var(--neutral-gray);">👀 Read-Only View</span> — Both partners can transparently track each other's execution.
-      {% endif %}
+    <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.2rem;">
+      Weekly operational milestones, daily check-in queue, and discipline streak.
     </p>
   </div>
 
-  <!-- Streak Counter -->
-  <div style="background:white; border:1px solid #fed7aa; padding:0.6rem 1rem; border-radius:var(--radius-md); box-shadow:var(--shadow-sm); display:flex; align-items:center; gap:0.6rem;">
-    <span style="font-size:1.8rem; line-height:1;">🔥</span>
+  <!-- Discipline Streak Card -->
+  <div style="background:#111827; border:1px solid #334155; padding:0.6rem 1.15rem; border-radius:var(--radius-md); display:flex; align-items:center; gap:0.85rem;">
+    <div style="width:8px; height:8px; border-radius:50%; background:var(--accent-emerald); box-shadow:0 0 8px var(--accent-emerald);"></div>
     <div>
-      <div style="font-size:0.75rem; font-weight:700; color:#ea580c; text-transform:uppercase;">Discipline Streak</div>
-      <div style="font-size:1.15rem; font-weight:800; color:var(--neutral-dark);">
-        {{ streak_count }} {{ 'Day' if streak_count == 1 else 'Days' }} in a row!
+      <div style="font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-subtle);">Consistency Streak</div>
+      <div style="font-size:1.1rem; font-weight:700; color:#ffffff;">
+        {{ streak_count }} {{ 'Day' if streak_count == 1 else 'Days' }} Active
       </div>
     </div>
   </div>
 </div>
 
-<!-- Weekly Completion Progress Card -->
-<div class="card" style="margin-bottom: 1.5rem;">
+<!-- Weekly Completion Progress -->
+<div class="card" style="margin-bottom: 1.75rem;">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
     <div>
-      <strong>Weekly Completion Rate (Week {{ selected_week }}):</strong>
-      <span style="color:var(--neutral-gray); margin-left:0.5rem;">{{ done_tasks_count }} of {{ total_tasks_count }} tasks completed</span>
+      <strong style="color:#ffffff;">Weekly Milestone Execution (Week {{ selected_week }}):</strong>
+      <span style="color:var(--text-muted); margin-left:0.5rem; font-size:0.85rem;">{{ done_tasks_count }} of {{ total_tasks_count }} completed</span>
     </div>
-    <div style="font-size:1.25rem; font-weight:800; color:{% if completion_rate >= 80 %}var(--income-green){% elif completion_rate >= 50 %}var(--savings-blue){% else %}var(--expense-red){% endif %};">
+    <div style="font-size:1.15rem; font-weight:700; color:{% if completion_rate >= 80 %}var(--accent-emerald){% elif completion_rate >= 50 %}var(--accent-blue){% else %}var(--accent-rose){% endif %};">
       {{ completion_rate }}%
     </div>
   </div>
-  <div class="progress-container" style="height:14px;">
-    <div class="progress-bar {% if completion_rate < 50 %}red{% endif %}" style="width: {{ completion_rate }}%;"></div>
+  <div class="progress-container">
+    <div class="progress-bar" style="width: {{ completion_rate }}%;"></div>
   </div>
 </div>
 
-<!-- Daily Check-in View for Today -->
-<div class="card" style="margin-bottom: 1.5rem; background:linear-gradient(135deg, #f8fafc, #ffffff); border-left:4px solid var(--income-green);">
+<!-- Daily Check-in for Today -->
+<div class="card" style="margin-bottom: 1.75rem; border-left:3px solid var(--accent-indigo);">
   <div class="card-header">
-    <div class="card-title">
-      📅 Daily Check-in: Today ({{ today_str }})
-    </div>
-    <div>
-      <span class="badge" style="background:#e0f2fe; color:#0369a1;">{{ today_tasks|length }} Scheduled for Today</span>
-    </div>
+    <div class="card-title">Daily Check-In: Today ({{ today_str }})</div>
+    <span class="badge" style="background:#1e293b; color:#cbd5e1;">{{ today_tasks|length }} Scheduled</span>
   </div>
 
   {% if today_tasks %}
     {% for task in today_tasks %}
       <div class="task-item {% if task.is_done %}is-done{% endif %}">
-        <form action="{{ url_for('toggle_task_done', task_id=task.id) }}" method="POST" class="task-checkbox-form">
+        <form action="{{ url_for('toggle_task_done', task_id=task.id) }}" method="POST" style="margin-top:2px;">
           <input type="hidden" name="partner_id" value="{{ partner.id }}">
           <input type="hidden" name="week_id" value="{{ selected_week }}">
-          <input type="checkbox" class="task-checkbox" {% if task.is_done %}checked{% endif %} 
-                 {% if not can_edit %}disabled onclick="promptPartnerLogin('{{ partner.id }}'); return false;"{% else %}onchange="this.form.submit()"{% endif %}>
+          <input type="checkbox" class="task-checkbox" {% if task.is_done %}checked{% endif %} onchange="this.form.submit()">
         </form>
-        <div class="task-body">
+        <div style="flex:1; margin-left:0.85rem;">
           <div class="task-title">{{ task.title }}</div>
           {% if task.details %}
-            <div style="font-size:0.85rem; color:var(--neutral-gray); margin-top:0.2rem;">{{ task.details }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">{{ task.details }}</div>
           {% endif %}
-          <div class="task-meta">
-            <span style="color:var(--income-green); font-weight:600;">Due Today</span>
-            {% if task.is_done %}
-              <span class="badge badge-paid">✓ Completed</span>
-            {% else %}
-              <span class="badge badge-pending">⏳ In Progress</span>
-            {% endif %}
-          </div>
+        </div>
+        <div>
+          {% if task.is_done %}
+            <span class="badge badge-paid">Completed</span>
+          {% else %}
+            <span class="badge badge-pending">In Progress</span>
+          {% endif %}
         </div>
       </div>
     {% endfor %}
   {% else %}
-    <p style="color:var(--neutral-gray); font-size:0.88rem; padding:0.5rem 0;">
-      No specific tasks are due today. Check the full weekly schedule below!
-    </p>
+    <div style="padding:0.75rem 0; color:var(--text-subtle); font-size:0.85rem;">
+      No tasks scheduled specifically for today. See the full weekly schedule below.
+    </div>
   {% endif %}
 </div>
 
-<!-- Full Week Tasks List -->
+<!-- All Tasks for the Week -->
 <div class="card">
   <div class="card-header">
-    <div class="card-title">
-      📋 All Tasks for Week {{ selected_week }}
-    </div>
-    {% if can_edit and selected_week == current_week_id %}
-      <button class="btn btn-outline btn-sm" data-open-modal="addTaskModal">➕ Add Task</button>
-    {% endif %}
+    <div class="card-title">Milestones for Week {{ selected_week }}</div>
+    <button class="btn btn-outline btn-sm" data-open-modal="addTaskModal">+ New Milestone</button>
   </div>
 
   {% if all_tasks %}
     {% for task in all_tasks %}
       {% set is_overdue = (not task.is_done and task.due_date < today_str) %}
-      <div class="task-item {% if task.is_done %}is-done{% endif %}" style="{% if is_overdue %}border-left: 4px solid var(--expense-red); background:#fff5f5;{% endif %}">
-        <form action="{{ url_for('toggle_task_done', task_id=task.id) }}" method="POST" class="task-checkbox-form">
+      <div class="task-item {% if task.is_done %}is-done{% endif %}" style="{% if is_overdue %}border-left: 3px solid var(--accent-rose);{% endif %}">
+        <form action="{{ url_for('toggle_task_done', task_id=task.id) }}" method="POST" style="margin-top:2px;">
           <input type="hidden" name="partner_id" value="{{ partner.id }}">
           <input type="hidden" name="week_id" value="{{ selected_week }}">
-          <input type="checkbox" class="task-checkbox" {% if task.is_done %}checked{% endif %} 
-                 {% if not can_edit %}disabled onclick="promptPartnerLogin('{{ partner.id }}'); return false;"{% else %}onchange="this.form.submit()"{% endif %}>
+          <input type="checkbox" class="task-checkbox" {% if task.is_done %}checked{% endif %} onchange="this.form.submit()">
         </form>
-        <div class="task-body">
+        <div style="flex:1; margin-left:0.85rem;">
           <div class="task-title">{{ task.title }}</div>
           {% if task.details %}
-            <div style="font-size:0.85rem; color:var(--neutral-gray); margin-top:0.2rem;">{{ task.details }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">{{ task.details }}</div>
           {% endif %}
-          <div class="task-meta">
-            <span><strong>Due:</strong> {{ task.due_date }}</span>
-            {% if task.is_done %}
-              <span class="badge badge-paid">Done on {{ task.done_date or 'Time' }}</span>
-            {% elif is_overdue %}
-              <span class="badge badge-overdue">⚠️ Overdue (Penalty Logged)</span>
-            {% else %}
-              <span class="badge badge-unpaid">Pending</span>
+          <div style="font-size:0.75rem; color:var(--text-subtle); margin-top:0.3rem;">
+            <span>Due: {{ task.due_date }}</span>
+            {% if is_overdue %}
+              <span class="badge badge-overdue" style="margin-left:0.5rem;">Overdue</span>
             {% endif %}
           </div>
         </div>
-        {% if can_edit %}
-          <div>
-            <form action="{{ url_for('delete_task', task_id=task.id) }}" method="POST" style="display:inline;">
-              <input type="hidden" name="partner_id" value="{{ partner.id }}">
-              <input type="hidden" name="week_id" value="{{ selected_week }}">
-              <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" data-confirm-msg="Delete this task?">🗑️</button>
-            </form>
-          </div>
-        {% endif %}
+        <div>
+          <form action="{{ url_for('delete_task', task_id=task.id) }}" method="POST" style="display:inline;">
+            <input type="hidden" name="partner_id" value="{{ partner.id }}">
+            <input type="hidden" name="week_id" value="{{ selected_week }}">
+            <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" style="font-size:0.72rem; padding:0.2rem 0.5rem;">Remove</button>
+          </form>
+        </div>
       </div>
     {% endfor %}
   {% else %}
-    <p style="color:var(--neutral-gray); font-size:0.9rem; text-align:center; padding:2rem 0;">
-      No tasks added for this week yet. Click "Add Task" to plan your week!
-    </p>
+    <div style="padding:2.5rem 0; text-align:center; color:var(--text-subtle); font-size:0.85rem;">
+      No milestones planned for this week. Click "+ New Milestone" to schedule a task.
+    </div>
   {% endif %}
 </div>
 
-<!-- ================= ADD TASK MODAL ================= -->
-{% if can_edit %}
-  <div class="modal-overlay" id="addTaskModal">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 class="modal-title">➕ Add Weekly Task</h3>
-        <button class="modal-close" data-close-modal="addTaskModal">&times;</button>
-      </div>
-      <form action="{{ url_for('add_task') }}" method="POST">
-        <input type="hidden" name="partner_id" value="{{ partner.id }}">
-        <input type="hidden" name="week_id" value="{{ selected_week }}">
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">Task Name *</label>
-            <input type="text" name="title" class="form-input" placeholder="e.g. Call supplier, Audit inventory, Launch ad" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Details / Requirements (Optional)</label>
-            <textarea name="details" class="form-textarea" rows="2" placeholder="Specific notes or checklist"></textarea>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Due Date *</label>
-            <input type="date" name="due_date" class="form-input" value="{{ today_str }}" required>
-            <div class="form-hint">Tip: Tasks not completed past their due date trigger your accountability penalty!</div>
-          </div>
-          <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
-            <button type="button" class="btn btn-secondary" data-close-modal="addTaskModal">Cancel</button>
-            <button type="submit" class="btn btn-primary">Add Task</button>
-          </div>
-        </div>
-      </form>
+<!-- Add Task Modal -->
+<div class="modal-overlay" id="addTaskModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">Schedule Milestone</h3>
+      <button class="modal-close" data-close-modal="addTaskModal">&times;</button>
     </div>
+    <form action="{{ url_for('add_task') }}" method="POST">
+      <input type="hidden" name="partner_id" value="{{ partner.id }}">
+      <input type="hidden" name="week_id" value="{{ selected_week }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Task Name *</label>
+          <input type="text" name="title" class="form-input" placeholder="e.g. Complete invoice audit, Finalize contract" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes / Details</label>
+          <textarea name="details" class="form-textarea" rows="2" placeholder="Specific requirements or guidelines"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Due Date *</label>
+          <input type="date" name="due_date" class="form-input" value="{{ today_str }}" required>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+          <button type="button" class="btn btn-secondary" data-close-modal="addTaskModal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Task</button>
+        </div>
+      </div>
+    </form>
   </div>
-{% endif %}
+</div>
 {% endblock %}

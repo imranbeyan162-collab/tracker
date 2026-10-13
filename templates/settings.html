@@ -1,90 +1,76 @@
 {% extends "base.html" %}
 
-{% block title %}Settings - Partner Tracker{% endblock %}
+{% block title %}System Settings - Imran & Mikiyas{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 1.5rem;">
-  <h1 style="font-size: 1.8rem; font-weight: 800;">⚙️ Partner Settings</h1>
-  <p style="color: var(--neutral-gray); font-size: 0.95rem;">
-    Manage your secret login PIN code, default task consequence, and personal business savings target.
+<div style="margin-bottom: 2rem;">
+  <h1 style="font-size: 1.6rem; font-weight: 700;">Partner &amp; Security Settings</h1>
+  <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 0.25rem;">
+    Manage access credentials, accountability consequences, and capital reserve targets for {{ current_user.name }}.
   </p>
 </div>
 
-{% if not current_user %}
-  <div class="card" style="text-align:center; padding:3rem 1.5rem;">
-    <div style="font-size:2.5rem; margin-bottom:0.5rem;">🔒</div>
-    <h3 style="font-size:1.2rem; font-weight:700;">Please Log In to Manage Settings</h3>
-    <p style="color:var(--neutral-gray); margin-top:0.4rem; margin-bottom:1.25rem;">
-      You need to enter your PIN code to access your personal settings.
-    </p>
-    <button class="btn btn-primary" data-open-modal="loginModal">🔑 Log In with Partner PIN</button>
-  </div>
-{% else %}
-  <div class="grid-2">
-    <!-- 1. Change PIN Code -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">🔑 Change Login PIN</div>
-      </div>
-      <form action="{{ url_for('change_pin') }}" method="POST">
-        <div class="form-group">
-          <label class="form-label">Current PIN Code *</label>
-          <input type="password" name="current_pin" class="form-input" placeholder="Enter current PIN" required>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">New PIN Code *</label>
-            <input type="password" name="new_pin" class="form-input" placeholder="e.g. 6-digit code" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Confirm New PIN *</label>
-            <input type="password" name="confirm_pin" class="form-input" placeholder="Repeat new PIN" required>
-          </div>
-        </div>
-        <p class="form-hint" style="margin-bottom:1rem;">
-          Your PIN is securely hashed before storage and never kept in plain text.
-        </p>
-        <button type="submit" class="btn btn-primary">Update My PIN Code</button>
-      </form>
-    </div>
-
-    <!-- 2. Set Default Consequence -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">⚖️ Accountability Consequence</div>
-      </div>
-      <form action="{{ url_for('update_consequence') }}" method="POST">
-        <div class="form-group">
-          <label class="form-label">Agreed Consequence for Missed Tasks *</label>
-          <textarea name="consequence" class="form-textarea" rows="3" required>{{ current_user.default_consequence }}</textarea>
-          <div class="form-hint">
-            Examples: "Cook dinner for my partner", "Wash dishes for 1 week", "Treat partner to coffee". Keep it positive, safe, and motivating!
-          </div>
-        </div>
-        <button type="submit" class="btn btn-primary">Save Consequence</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- 3. Savings Goal Settings -->
-  <div class="card" style="margin-top:1rem;">
+<div class="grid-2">
+  <!-- 1. Change Access Key -->
+  <div class="card">
     <div class="card-header">
-      <div class="card-title">🎯 Personal Savings Goal</div>
+      <div class="card-title">Access Password &amp; Key</div>
     </div>
-    <form action="{{ url_for('update_savings_goal') }}" method="POST">
-      <input type="hidden" name="partner_id" value="{{ current_user.id }}">
+    <form action="{{ url_for('change_pin') }}" method="POST">
+      <div class="form-group">
+        <label class="form-label">Current Password *</label>
+        <input type="password" name="current_pin" class="form-input" placeholder="Current system password" required>
+      </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">Goal Name *</label>
-          <input type="text" name="goal_name" class="form-input" value="{{ current_user.savings_goal_name }}" required>
+          <label class="form-label">New Password *</label>
+          <input type="password" name="new_pin" class="form-input" placeholder="New password" required>
         </div>
         <div class="form-group">
-          <label class="form-label">Target Amount ($) *</label>
-          <input type="number" step="1" min="1" name="target_amount" class="form-input" value="{{ current_user.savings_goal_target }}" required>
+          <label class="form-label">Confirm New Password *</label>
+          <input type="password" name="confirm_pin" class="form-input" placeholder="Confirm password" required>
         </div>
       </div>
-      <button type="submit" class="btn btn-primary">Save Goal Target</button>
+      <button type="submit" class="btn btn-primary" style="margin-top:0.5rem;">Update Password</button>
     </form>
   </div>
-{% endif %}
+
+  <!-- 2. Set Default Consequence -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Agreed Consequence for Missed Tasks</div>
+    </div>
+    <form action="{{ url_for('update_consequence') }}" method="POST">
+      <div class="form-group">
+        <label class="form-label">Designated Consequence *</label>
+        <textarea name="consequence" class="form-textarea" rows="3" required>{{ current_user.default_consequence }}</textarea>
+        <div class="form-hint">
+          Applied automatically to the penalty board if a task is not marked complete by its due date.
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="margin-top:0.5rem;">Save Consequence</button>
+    </form>
+  </div>
+</div>
+
+<!-- 3. Capital Reserve Target -->
+<div class="card" style="margin-top:1.5rem;">
+  <div class="card-header">
+    <div class="card-title">Personal Capital Reserve Target</div>
+  </div>
+  <form action="{{ url_for('update_savings_goal') }}" method="POST">
+    <input type="hidden" name="partner_id" value="{{ current_user.id }}">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Reserve Objective Name</label>
+        <input type="text" name="goal_name" class="form-input" value="{{ current_user.savings_goal_name }}" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Target Amount ($)</label>
+        <input type="number" step="1" min="0" name="target_amount" class="form-input" value="{{ current_user.savings_goal_target }}" required>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top:0.5rem;">Save Reserve Target</button>
+  </form>
+</div>
 {% endblock %}

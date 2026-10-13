@@ -1,6 +1,7 @@
 """
-Database utilities and helper functions for Partner Tracker.
-Handles SQLite connection, schema definition, seed data, and query helpers.
+Database utilities and helper functions for Imran & Mikiyas Venture Tracker.
+Handles SQLite connection, schema definition, and query helpers.
+Zero dummy data - clean state for user input.
 """
 
 import sqlite3
@@ -32,21 +33,21 @@ def get_db_connection():
     return conn
 
 
-def init_db(seed=True):
-    """Initializes tables and seeds initial data if database is empty."""
+def init_db(seed=False):
+    """Initializes tables with clean state (no dummy records)."""
     os.makedirs(DB_DIR, exist_ok=True)
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # 1. Users table (Partner A and Partner B)
+    # 1. Users table (Imran and Mikiyas)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         pin_hash TEXT NOT NULL,
-        default_consequence TEXT NOT NULL,
-        savings_goal_name TEXT NOT NULL DEFAULT 'Emergency & Growth Fund',
-        savings_goal_target REAL NOT NULL DEFAULT 5000.0,
+        default_consequence TEXT NOT NULL DEFAULT '',
+        savings_goal_name TEXT NOT NULL DEFAULT 'Capital Growth Fund',
+        savings_goal_target REAL NOT NULL DEFAULT 0.0,
         currency TEXT NOT NULL DEFAULT '$'
     )
     """)
@@ -134,134 +135,60 @@ def init_db(seed=True):
     )
     """)
 
+    # 7. Goals table (Shared goals and personal goals for Imran & Mikiyas)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS goals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        goal_type TEXT NOT NULL CHECK(goal_type IN ('shared', 'imran', 'mikiyas')),
+        title TEXT NOT NULL,
+        description TEXT,
+        target_time TEXT,
+        target_date TEXT,
+        category TEXT DEFAULT 'General',
+        is_completed INTEGER NOT NULL DEFAULT 0,
+        reminder_enabled INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
     conn.commit()
 
-    # Seed initial users if they don't exist
+    # Ensure Imran and Mikiyas exist with requested default credentials
     cursor.execute("SELECT COUNT(*) FROM users")
-    if cursor.fetchone()[0] == 0 and seed:
-        seed_initial_data(conn)
+    if cursor.fetchone()[0] == 0:
+        create_clean_users(conn)
+    else:
+        # Check if users need migration to Imran & Mikiyas
+        cursor.execute("SELECT id FROM users")
+        u_ids = [r[0] for r in cursor.fetchall()]
+        if 'imran' not in u_ids or 'mikiyas' not in u_ids:
+            # Recreate with Imran & Mikiyas cleanly
+            cursor.execute("DELETE FROM users")
+            create_clean_users(conn)
 
     conn.close()
 
 
-def seed_initial_data(conn):
-    """Seeds default partners and realistic sample entries."""
+def create_clean_users(conn):
+    """Creates the two partners with the specified master password."""
     cursor = conn.cursor()
-    today = date.today()
-
-    # Default PINs:
-    # Partner A: 111111
-    # Partner B: 222222
-    pin_a = generate_password_hash("111111")
-    pin_b = generate_password_hash("222222")
+    # Default master password: imranandmicas@gmail.com
+    master_hash = generate_password_hash("imranandmicas@gmail.com")
 
     cursor.execute("""
     INSERT INTO users (id, name, pin_hash, default_consequence, savings_goal_name, savings_goal_target, currency)
     VALUES 
-    ('partner_a', 'Partner A', ?, 'Cook a 3-course dinner for Partner B', 'Q4 Expansion & Inventory', 3000.0, '$'),
-    ('partner_b', 'Partner B', ?, 'Wash dishes & clean workspace for a week', 'Marketing Equipment Fund', 2500.0, '$')
-    """, (pin_a, pin_b))
-
-    # Helper dates
-    d0 = today.strftime("%Y-%m-%d")
-    d_yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
-    d_minus3 = (today - timedelta(days=3)).strftime("%Y-%m-%d")
-    d_minus5 = (today - timedelta(days=5)).strftime("%Y-%m-%d")
-    d_minus8 = (today - timedelta(days=8)).strftime("%Y-%m-%d")
-    d_plus2 = (today + timedelta(days=2)).strftime("%Y-%m-%d")
-    d_plus4 = (today + timedelta(days=4)).strftime("%Y-%m-%d")
-    d_overdue = (today - timedelta(days=2)).strftime("%Y-%m-%d")
-
-    # Sample Transactions for Partner A
-    cursor.executemany("""
-    INSERT INTO transactions (user_id, date, type, category, amount, currency, note)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, [
-        ('partner_a', d_minus8, 'Income', 'Product Sales', 1250.00, '$', 'Batch #1 online storefront sales'),
-        ('partner_a', d_minus5, 'Expense', 'Packaging & Supplies', 180.50, '$', 'Eco-friendly mailer boxes & tape'),
-        ('partner_a', d_minus3, 'Savings', 'Emergency Fund', 300.00, '$', 'Weekly reserve transfer'),
-        ('partner_a', d_yesterday, 'Income', 'Consulting Client', 650.00, '$', 'Client onboarding milestone 1'),
-        ('partner_a', d0, 'Investment', 'Equipment', 400.00, '$', 'Label printer & packaging station'),
-        ('partner_a', d0, 'Expense', 'Software & Tools', 49.00, '$', 'Design software monthly subscription')
-    ])
-
-    # Sample Transactions for Partner B
-    cursor.executemany("""
-    INSERT INTO transactions (user_id, date, type, category, amount, currency, note)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, [
-        ('partner_b', d_minus8, 'Income', 'Wholesale Order', 980.00, '$', 'Local boutique wholesale supply'),
-        ('partner_b', d_minus5, 'Expense', 'Digital Ads', 210.00, '$', 'Social media target campaign'),
-        ('partner_b', d_minus3, 'Savings', 'Growth Reserve', 250.00, '$', 'Weekly business savings transfer'),
-        ('partner_b', d_yesterday, 'Expense', 'Shipping Costs', 85.00, '$', 'Courier pickups for bulk delivery'),
-        ('partner_b', d0, 'Income', 'Online Store', 540.00, '$', 'Weekend direct retail sales'),
-        ('partner_b', d0, 'Investment', 'Stocks', 350.00, '$', 'Index fund contribution')
-    ])
-
-    # Sample Bills
-    cursor.executemany("""
-    INSERT INTO bills (user_id, name, amount, currency, due_date, is_paid, recurring_interval)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, [
-        ('partner_a', 'Shopify Store Hosting', 39.00, '$', d_plus4, 0, 'Monthly'),
-        ('partner_a', 'Domain Renewal (partnerbiz.com)', 18.00, '$', d_overdue, 0, 'Yearly'),  # Overdue demo!
-        ('partner_a', 'Accounting Software', 25.00, '$', d_minus8, 1, 'Monthly'),
-        ('partner_b', 'Google Workspace Email', 12.00, '$', d_plus2, 0, 'Monthly'),
-        ('partner_b', 'Warehouse Mini-Storage', 120.00, '$', d_plus4, 0, 'Monthly'),
-        ('partner_b', 'Payment Processing Fee', 45.00, '$', d_minus5, 1, 'Monthly')
-    ])
-
-    # Sample Investments
-    cursor.executemany("""
-    INSERT INTO investments (user_id, asset_name, amount_invested, current_value, currency, purchase_date, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, [
-        ('partner_a', 'High-Speed Thermal Printer', 400.00, 420.00, '$', d0, 'Resale value holding strong with 2-year warranty'),
-        ('partner_a', 'Bulk Inventory Stock (Batch 2)', 1100.00, 1550.00, '$', d_minus8, 'Expected gross retail value after packaging'),
-        ('partner_b', 'Business ETF Growth Portfolio', 350.00, 385.00, '$', d0, 'Small cap index investment fund'),
-        ('partner_b', 'High-Yield Business Stash', 800.00, 816.00, '$', d_minus8, '4.8% APY interest yield stash')
-    ])
-
-    # Current week identifier
-    curr_week = f"{today.year}-W{today.isocalendar()[1]:02d}"
-
-    # Sample Tasks
-    cursor.executemany("""
-    INSERT INTO tasks (user_id, week_identifier, title, details, due_date, is_done, done_date, is_archived, consequence_applied)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, [
-        ('partner_a', curr_week, 'Package & ship pending customer orders', 'All orders from weekend queue', d_yesterday, 1, d_yesterday, 0, 0),
-        ('partner_a', curr_week, 'Update supplier cost comparison spreadsheet', 'Need 3 wholesale quotes', d0, 0, None, 0, 0),
-        ('partner_a', curr_week, 'Reconcile weekly bank receipts', 'Match invoices to entries', d_plus2, 0, None, 0, 0),
-        ('partner_a', curr_week, 'Launch new product mockup photos', 'Prepare 5 instagram slides', d_plus4, 0, None, 0, 0),
-        
-        ('partner_b', curr_week, 'Set up weekly ad campaign A/B test', 'Test carousel vs single video ad', d_yesterday, 1, d_yesterday, 0, 0),
-        ('partner_b', curr_week, 'Reach out to 5 local retail shops', 'Send wholesale product catalog', d0, 1, d0, 0, 0),
-        ('partner_b', curr_week, 'Update inventory restock alerts', 'Check stock below 15 units', d_plus2, 0, None, 0, 0),
-        ('partner_b', curr_week, 'Draft email newsletter to subscribers', 'Highlight special flash sale', d_plus4, 0, None, 0, 0)
-    ])
-
-    # Sample Penalties (One completed, one pending to showcase feature)
-    cursor.executemany("""
-    INSERT INTO penalties (user_id, task_id, consequence, reason, status, created_date, completed_date)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, [
-        ('partner_a', None, 'Cook a 3-course dinner for Partner B', 'Missed task: "File monthly tax estimate" (Last Week)', 'Pending', d_minus3, None),
-        ('partner_b', None, 'Wash dishes & clean workspace for a week', 'Missed task: "Send bulk quote to supplier" (Last Week)', 'Completed', d_minus8, d_yesterday)
-    ])
-
+    ('imran', 'Imran', ?, 'Complete an agreed accountability task', 'Personal Reserve', 0.0, '$'),
+    ('mikiyas', 'Mikiyas', ?, 'Complete an agreed accountability task', 'Personal Reserve', 0.0, '$')
+    """, (master_hash, master_hash))
     conn.commit()
 
 
 def check_and_apply_penalties(conn):
-    """
-    Checks for tasks whose due_date is in the past (< today) and is_done == 0.
-    Automatically generates a penalty on the owner's page with their designated consequence.
-    """
+    """Checks for tasks whose due_date is in the past and is_done == 0."""
     today_str = date.today().strftime("%Y-%m-%d")
     cursor = conn.cursor()
 
-    # Find overdue incomplete tasks where consequence hasn't been triggered yet
     cursor.execute("""
     SELECT t.id, t.user_id, t.title, t.due_date, u.default_consequence 
     FROM tasks t
@@ -272,7 +199,7 @@ def check_and_apply_penalties(conn):
 
     for task in overdue_tasks:
         reason = f"Missed task: '{task['title']}' (Due {task['due_date']})"
-        consequence = task['default_consequence'] or "Do an agreed partner chore"
+        consequence = task['default_consequence'] or "Agreed accountability consequence"
         cursor.execute("""
         INSERT INTO penalties (user_id, task_id, consequence, reason, status, created_date)
         VALUES (?, ?, ?, ?, 'Pending', ?)
@@ -284,31 +211,23 @@ def check_and_apply_penalties(conn):
 
 
 def calculate_task_streak(conn, user_id):
-    """
-    Calculates consecutive days where all tasks due were completed.
-    Walks backwards from today/yesterday.
-    """
+    """Calculates consecutive days where all tasks due were completed."""
     cursor = conn.cursor()
     today = date.today()
     streak = 0
     
-    # Check consecutive past days
     for day_offset in range(1, 30):
         check_date = (today - timedelta(days=day_offset)).strftime("%Y-%m-%d")
-        
-        # Were there tasks due on this date?
         cursor.execute("SELECT COUNT(*), SUM(is_done) FROM tasks WHERE user_id = ? AND due_date = ?", (user_id, check_date))
         total, done = cursor.fetchone()
         
         if total == 0:
-            # If no tasks were due on that day, streak continues if there's completed tasks before
             continue
         elif done == total:
             streak += 1
         else:
             break
             
-    # Check today's tasks
     today_str = today.strftime("%Y-%m-%d")
     cursor.execute("SELECT COUNT(*), SUM(is_done) FROM tasks WHERE user_id = ? AND due_date = ?", (user_id, today_str))
     total_today, done_today = cursor.fetchone()
@@ -319,14 +238,7 @@ def calculate_task_streak(conn, user_id):
 
 
 def get_user_financial_totals(conn, user_id=None):
-    """
-    Computes running totals:
-    - Income (money received)
-    - Expense (money spent)
-    - Savings (money saved)
-    - Investment (money invested)
-    - Net (Income - Expense)
-    """
+    """Computes running totals: Income, Expense, Savings, Investment, Net."""
     cursor = conn.cursor()
     params = []
     where_clause = ""
@@ -362,11 +274,7 @@ def get_user_financial_totals(conn, user_id=None):
 
 
 def get_chart_data(conn, user_id=None):
-    """
-    Aggregates data for charts:
-    - Monthly Income vs Expense (last 6 months)
-    - Expense breakdown by category
-    """
+    """Aggregates data for monthly charts and expense categories."""
     cursor = conn.cursor()
     params = []
     user_filter = ""
@@ -374,7 +282,6 @@ def get_chart_data(conn, user_id=None):
         user_filter = "WHERE user_id = ?"
         params.append(user_id)
 
-    # 1. Monthly Income vs Expenses
     monthly_query = f"""
     SELECT 
         substr(date, 1, 7) as month_str,
@@ -393,7 +300,6 @@ def get_chart_data(conn, user_id=None):
     monthly_income = [float(r['income']) for r in monthly_rows]
     monthly_expense = [float(r['expense']) for r in monthly_rows]
 
-    # 2. Expense categories
     cat_params = [user_id] if user_id else []
     cat_filter = "WHERE type = 'Expense' AND user_id = ?" if user_id else "WHERE type = 'Expense'"
     cat_query = f"""
@@ -416,3 +322,13 @@ def get_chart_data(conn, user_id=None):
         'expense_categories': expense_categories,
         'expense_category_amounts': expense_category_amounts
     }
+
+
+def get_goals(conn, goal_type=None):
+    """Fetches goals filtered by type (shared, imran, mikiyas) or all."""
+    cursor = conn.cursor()
+    if goal_type:
+        cursor.execute("SELECT * FROM goals WHERE goal_type = ? ORDER BY is_completed ASC, id DESC", (goal_type,))
+    else:
+        cursor.execute("SELECT * FROM goals ORDER BY is_completed ASC, id DESC")
+    return cursor.fetchall()

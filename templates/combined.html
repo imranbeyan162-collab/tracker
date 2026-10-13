@@ -1,108 +1,105 @@
 {% extends "base.html" %}
 
-{% block title %}Combined Financials - Partner Tracker{% endblock %}
+{% block title %}Consolidated Financials - Imran & Mikiyas{% endblock %}
 
 {% block content %}
 <div class="partner-tabs">
   <div class="tab-group">
-    <a href="{{ url_for('money_view', partner_id='partner_a') }}" class="tab-btn">Partner A's Money</a>
-    <a href="{{ url_for('money_view', partner_id='partner_b') }}" class="tab-btn">Partner B's Money</a>
-    <a href="{{ url_for('combined_view') }}" class="tab-btn active">🌐 Shared Combined</a>
+    <a href="{{ url_for('money_view', partner_id='imran') }}" class="tab-btn">Imran</a>
+    <a href="{{ url_for('money_view', partner_id='mikiyas') }}" class="tab-btn">Mikiyas</a>
+    <a href="{{ url_for('combined_view') }}" class="tab-btn active">Consolidated Sheet</a>
   </div>
 
   <div>
     <a href="{{ url_for('export_csv', user_id='combined') }}" class="btn btn-outline btn-sm">
-      📥 Export All Entries to CSV
+      Export Full CSV
     </a>
   </div>
 </div>
 
-<div style="margin-bottom: 1.5rem;">
-  <h1 style="font-size: 1.8rem; font-weight: 800;">🌐 Shared Business Finances</h1>
-  <p style="color: var(--neutral-gray); font-size: 0.95rem;">
-    Full consolidated overview of both Partner A and Partner B's financial contributions, assets, and liabilities.
+<div style="margin-bottom: 2rem;">
+  <h1 style="font-size: 1.6rem; font-weight: 700;">Consolidated Venture Statement</h1>
+  <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 0.25rem;">
+    Full audit of joint revenue, combined operational expenses, capital reserves, and portfolio equity.
   </p>
 </div>
 
-<!-- Running Combined Totals -->
+<!-- Consolidated Running Totals -->
 <div class="grid-4">
-  <div class="card stat-card income">
-    <div class="stat-label">Combined Revenue</div>
+  <div class="card">
+    <div class="stat-label">Total Venture Income</div>
     <div class="stat-value green">${{ "%.2f"|format(combined_fin.income) }}</div>
-    <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.25rem;">Partner A + Partner B</div>
+    <div style="font-size:0.75rem; color:var(--text-subtle); margin-top:0.35rem;">Imran + Mikiyas</div>
   </div>
 
-  <div class="card stat-card expense">
-    <div class="stat-label">Combined Expenses</div>
+  <div class="card">
+    <div class="stat-label">Total Venture Outlays</div>
     <div class="stat-value red">${{ "%.2f"|format(combined_fin.expense) }}</div>
-    <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.25rem;">All operational outlays</div>
+    <div style="font-size:0.75rem; color:var(--text-subtle); margin-top:0.35rem;">Consolidated business expenses</div>
   </div>
 
-  <div class="card stat-card savings">
-    <div class="stat-label">Combined Savings</div>
+  <div class="card">
+    <div class="stat-label">Venture Reserves</div>
     <div class="stat-value blue">${{ "%.2f"|format(combined_fin.savings) }}</div>
-    <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.25rem;">Total capital reserves</div>
+    <div style="font-size:0.75rem; color:var(--text-subtle); margin-top:0.35rem;">Set aside in savings</div>
   </div>
 
-  <div class="card stat-card investment">
-    <div class="stat-label">Combined Net Profit</div>
+  <div class="card">
+    <div class="stat-label">Consolidated Net Profit</div>
     <div class="stat-value {% if combined_fin.net >= 0 %}green{% else %}red{% endif %}">
       ${{ "%.2f"|format(combined_fin.net) }}
     </div>
-    <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.25rem;">Revenue minus Expenses</div>
+    <div style="font-size:0.75rem; color:var(--text-subtle); margin-top:0.35rem;">Total cash flow margin</div>
   </div>
 </div>
 
-<!-- Partner Breakdown Comparison Cards -->
+<!-- Contribution Comparison -->
 <div class="grid-2">
   <div class="card">
     <div class="card-header">
-      <div class="card-title">⚖️ Revenue &amp; Expense Contribution</div>
+      <div class="card-title">Contribution Breakdown</div>
     </div>
-    <div style="position:relative; height:240px;">
-      <canvas id="partnerComparisonChart"></canvas>
+    <div style="padding:1rem 0;">
+      <div style="margin-bottom:1.25rem;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:0.35rem; font-size:0.85rem;">
+          <span><strong>Imran Net Cash Flow:</strong></span>
+          <strong style="color:{% if a_fin.net >= 0 %}var(--accent-emerald){% else %}var(--accent-rose){% endif %};">${{ "%.2f"|format(a_fin.net) }}</strong>
+        </div>
+        <div class="progress-container">
+          {% set a_share = (a_fin.income / combined_fin.income * 100) if combined_fin.income > 0 else 50 %}
+          <div class="progress-bar" style="width: {{ a_share }}%; background: var(--accent-indigo);"></div>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:0.35rem; font-size:0.85rem;">
+          <span><strong>Mikiyas Net Cash Flow:</strong></span>
+          <strong style="color:{% if b_fin.net >= 0 %}var(--accent-emerald){% else %}var(--accent-rose){% endif %};">${{ "%.2f"|format(b_fin.net) }}</strong>
+        </div>
+        <div class="progress-container">
+          {% set b_share = (b_fin.income / combined_fin.income * 100) if combined_fin.income > 0 else 50 %}
+          <div class="progress-bar" style="width: {{ b_share }}%; background: var(--accent-emerald);"></div>
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="card">
     <div class="card-header">
-      <div class="card-title">💼 Balance Breakdown</div>
+      <div class="card-title">Portfolio Equity</div>
+      <div><strong>${{ "%.2f"|format(total_portfolio_val) }}</strong></div>
     </div>
-    <div style="display:flex; flex-direction:column; gap:1rem; justify-content:center; height:240px; padding:0 1rem;">
-      <div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:0.25rem; font-size:0.9rem;">
-          <span><strong>Partner A Net Cash:</strong></span>
-          <strong style="color:{% if a_fin.net >= 0 %}var(--income-green){% else %}var(--expense-red){% endif %};">${{ "%.2f"|format(a_fin.net) }}</strong>
-        </div>
-        <div class="progress-container">
-          {% set a_share = (a_fin.income / combined_fin.income * 100) if combined_fin.income > 0 else 50 %}
-          <div class="progress-bar" style="width: {{ a_share }}%; background: var(--partner-a);"></div>
-        </div>
-        <div style="font-size:0.75rem; color:var(--neutral-gray);">Generated {{ "%.1f"|format(a_share) }}% of total gross revenue</div>
-      </div>
-
-      <div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:0.25rem; font-size:0.9rem;">
-          <span><strong>Partner B Net Cash:</strong></span>
-          <strong style="color:{% if b_fin.net >= 0 %}var(--income-green){% else %}var(--expense-red){% endif %};">${{ "%.2f"|format(b_fin.net) }}</strong>
-        </div>
-        <div class="progress-container">
-          {% set b_share = (b_fin.income / combined_fin.income * 100) if combined_fin.income > 0 else 50 %}
-          <div class="progress-bar" style="width: {{ b_share }}%; background: var(--partner-b);"></div>
-        </div>
-        <div style="font-size:0.75rem; color:var(--neutral-gray);">Generated {{ "%.1f"|format(b_share) }}% of total gross revenue</div>
-      </div>
-    </div>
+    <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.5; padding:0.5rem 0;">
+      Tracks cumulative valuation across all recorded business assets, software licenses, equipment, and invested capital.
+    </p>
   </div>
 </div>
 
-<!-- Combined Bills & Subscriptions -->
-<div class="card" style="margin-bottom:1.5rem;">
+<!-- Consolidated Obligations -->
+<div class="card" style="margin-bottom:1.75rem;">
   <div class="card-header">
-    <div class="card-title">🧾 Shared Bills &amp; Recurring Subscriptions</div>
-    <div>
-      <span class="badge" style="background:#e2e8f0; color:#334155;">{{ bills|length }} Total Active Bills</span>
-    </div>
+    <div class="card-title">Shared Obligations &amp; Bills</div>
+    <span class="badge" style="background:#1e293b; color:#cbd5e1;">{{ bills|length }} Total</span>
   </div>
   {% if bills %}
     <div class="table-responsive">
@@ -111,7 +108,7 @@
           <tr>
             <th>Partner</th>
             <th>Status</th>
-            <th>Bill Name</th>
+            <th>Name</th>
             <th>Amount</th>
             <th>Due Date</th>
             <th>Interval</th>
@@ -122,23 +119,23 @@
             {% set is_overdue = (not bill.is_paid and bill.due_date < today_str) %}
             <tr class="{% if is_overdue %}overdue-row{% endif %}">
               <td>
-                {% if bill.user_id == 'partner_a' %}
-                  <span class="badge-partner-a">Partner A</span>
+                {% if bill.user_id == 'imran' %}
+                  <span class="badge" style="background:rgba(99,102,241,0.15); color:#818cf8;">Imran</span>
                 {% else %}
-                  <span class="badge-partner-b">Partner B</span>
+                  <span class="badge" style="background:rgba(16,185,129,0.15); color:#34d399;">Mikiyas</span>
                 {% endif %}
               </td>
               <td>
                 {% if bill.is_paid %}
-                  <span class="badge badge-paid">✓ Paid</span>
+                  <span class="badge badge-paid">Paid</span>
                 {% elif is_overdue %}
-                  <span class="badge badge-overdue">⚠️ Overdue!</span>
+                  <span class="badge badge-overdue">Overdue</span>
                 {% else %}
-                  <span class="badge badge-unpaid">⏳ Unpaid</span>
+                  <span class="badge badge-unpaid">Pending</span>
                 {% endif %}
               </td>
               <td><strong>{{ bill.name }}</strong></td>
-              <td style="font-weight:700; color:var(--expense-red);">${{ "%.2f"|format(bill.amount) }}</td>
+              <td style="color:var(--accent-rose); font-weight:600;">${{ "%.2f"|format(bill.amount) }}</td>
               <td>{{ bill.due_date }}</td>
               <td>{{ bill.recurring_interval }}</td>
             </tr>
@@ -147,158 +144,67 @@
       </table>
     </div>
   {% else %}
-    <p style="color:var(--neutral-gray); font-size:0.9rem; text-align:center; padding:1.5rem 0;">No bills logged.</p>
+    <div style="padding:1.5rem 0; text-align:center; color:var(--text-subtle); font-size:0.85rem;">
+      No recurring obligations recorded yet.
+    </div>
   {% endif %}
 </div>
 
-<!-- Combined Investments Portfolio -->
-<div class="card" style="margin-bottom:1.5rem;">
+<!-- Consolidated Transactions -->
+<div class="card">
   <div class="card-header">
-    <div class="card-title">📈 Consolidated Investment &amp; Asset Portfolio</div>
-    <div>
-      <strong>Combined Value: </strong>
-      <span style="color:var(--savings-blue); font-size:1.1rem; font-weight:700;">${{ "%.2f"|format(total_portfolio_val) }}</span>
-    </div>
+    <div class="card-title">Recent Activity Log</div>
+    <a href="{{ url_for('export_csv', user_id='combined') }}" class="btn btn-outline btn-sm">Download CSV</a>
   </div>
-  {% if investments %}
+  {% if transactions %}
     <div class="table-responsive">
       <table>
         <thead>
           <tr>
             <th>Partner</th>
-            <th>Asset</th>
-            <th>Cost Basis</th>
-            <th>Current Valuation</th>
-            <th>Net Gain / Loss</th>
-            <th>ROI</th>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Category</th>
+            <th>Amount</th>
+            <th>Note</th>
           </tr>
         </thead>
         <tbody>
-          {% for inv in investments %}
-            {% set gain = inv.current_value - inv.amount_invested %}
-            {% set roi = (gain / inv.amount_invested * 100) if inv.amount_invested > 0 else 0 %}
+          {% for txn in transactions %}
             <tr>
               <td>
-                {% if inv.user_id == 'partner_a' %}
-                  <span class="badge-partner-a">Partner A</span>
+                {% if txn.user_id == 'imran' %}
+                  <span class="badge" style="background:rgba(99,102,241,0.15); color:#818cf8;">Imran</span>
                 {% else %}
-                  <span class="badge-partner-b">Partner B</span>
+                  <span class="badge" style="background:rgba(16,185,129,0.15); color:#34d399;">Mikiyas</span>
                 {% endif %}
               </td>
-              <td><strong>{{ inv.asset_name }}</strong></td>
-              <td>${{ "%.2f"|format(inv.amount_invested) }}</td>
-              <td style="font-weight:700;">${{ "%.2f"|format(inv.current_value) }}</td>
-              <td style="font-weight:700; color:{% if gain >= 0 %}var(--income-green){% else %}var(--expense-red){% endif %};">
-                {% if gain >= 0 %}+{% endif %}${{ "%.2f"|format(gain) }}
-              </td>
+              <td>{{ txn.date }}</td>
               <td>
-                <span class="badge {% if roi >= 0 %}badge-paid{% else %}badge-unpaid{% endif %}">
-                  {% if roi >= 0 %}+{% endif %}{{ "%.1f"|format(roi) }}%
-                </span>
+                {% if txn.type == 'Income' %}
+                  <span class="badge badge-income">Income</span>
+                {% elif txn.type == 'Expense' %}
+                  <span class="badge badge-expense">Expense</span>
+                {% elif txn.type == 'Savings' %}
+                  <span class="badge badge-savings">Savings</span>
+                {% else %}
+                  <span class="badge badge-investment">Investment</span>
+                {% endif %}
               </td>
+              <td><strong>{{ txn.category }}</strong></td>
+              <td style="font-weight:600; color:{% if txn.type == 'Income' %}var(--accent-emerald){% elif txn.type == 'Expense' %}var(--accent-rose){% else %}var(--accent-blue){% endif %};">
+                ${{ "%.2f"|format(txn.amount) }}
+              </td>
+              <td style="color:var(--text-muted);">{{ txn.note or '-' }}</td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   {% else %}
-    <p style="color:var(--neutral-gray); font-size:0.9rem; text-align:center; padding:1.5rem 0;">No investments recorded.</p>
+    <div style="padding:2rem 0; text-align:center; color:var(--text-subtle); font-size:0.85rem;">
+      No entries logged in the system yet.
+    </div>
   {% endif %}
 </div>
-
-<!-- Recent Combined Transactions -->
-<div class="card">
-  <div class="card-header">
-    <div class="card-title">📒 Recent Consolidated Activity</div>
-    <a href="{{ url_for('export_csv', user_id='combined') }}" class="btn btn-outline btn-sm">📥 Download CSV</a>
-  </div>
-  <div class="table-responsive">
-    <table>
-      <thead>
-        <tr>
-          <th>Partner</th>
-          <th>Date</th>
-          <th>Type</th>
-          <th>Category</th>
-          <th>Amount</th>
-          <th>Note</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for txn in transactions %}
-          <tr>
-            <td>
-              {% if txn.user_id == 'partner_a' %}
-                <span class="badge-partner-a">Partner A</span>
-              {% else %}
-                <span class="badge-partner-b">Partner B</span>
-              {% endif %}
-            </td>
-            <td>{{ txn.date }}</td>
-            <td>
-              {% if txn.type == 'Income' %}
-                <span class="badge badge-income">Income</span>
-              {% elif txn.type == 'Expense' %}
-                <span class="badge badge-expense">Expense</span>
-              {% elif txn.type == 'Savings' %}
-                <span class="badge badge-savings">Savings</span>
-              {% else %}
-                <span class="badge badge-investment">Investment</span>
-              {% endif %}
-            </td>
-            <td><strong>{{ txn.category }}</strong></td>
-            <td style="font-weight:700; color:{% if txn.type == 'Income' %}var(--income-green){% elif txn.type == 'Expense' %}var(--expense-red){% else %}var(--savings-blue){% endif %};">
-              ${{ "%.2f"|format(txn.amount) }}
-            </td>
-            <td style="color:var(--neutral-gray);">{{ txn.note or '-' }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-// Partner Comparison Chart
-const cmpCtx = document.getElementById('partnerComparisonChart');
-if (cmpCtx) {
-  new Chart(cmpCtx, {
-    type: 'bar',
-    data: {
-      labels: ['Income', 'Expenses', 'Savings', 'Investments'],
-      datasets: [
-        {
-          label: 'Partner A',
-          data: [{{ a_fin.income }}, {{ a_fin.expense }}, {{ a_fin.savings }}, {{ a_fin.investments }}],
-          backgroundColor: '#6366f1',
-          borderRadius: 4
-        },
-        {
-          label: 'Partner B',
-          data: [{{ b_fin.income }}, {{ b_fin.expense }}, {{ b_fin.savings }}, {{ b_fin.investments }}],
-          backgroundColor: '#ec4899',
-          borderRadius: 4
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top' }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: value => '$' + value
-          }
-        }
-      }
-    }
-  });
-}
-</script>
 {% endblock %}

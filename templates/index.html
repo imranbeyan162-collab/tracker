@@ -1,185 +1,171 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Partner Tracker{% endblock %}
+{% block title %}Venture Overview - Imran & Mikiyas{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 1.5rem;">
+<div style="margin-bottom: 2rem;">
   <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
     <div>
-      <h1 style="font-size: 1.8rem; font-weight: 800; color: var(--neutral-dark);">💼 Business Dashboard</h1>
-      <p style="color: var(--neutral-gray); margin-top: 0.25rem;">
-        Collaborative finance, savings, investments, and weekly task accountability for Partner A &amp; Partner B.
+      <h1 style="font-size: 1.65rem; font-weight: 700;">Venture Overview</h1>
+      <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 0.25rem;">
+        Consolidated financial telemetry and execution tracking for Imran and Mikiyas.
       </p>
     </div>
-    <div>
-      <a href="{{ url_for('combined_view') }}" class="btn btn-primary">📊 Full Combined Financials</a>
+    <div style="display:flex; gap:0.5rem;">
+      <a href="{{ url_for('goals_view') }}" class="btn btn-outline btn-sm">Goals &amp; Habits</a>
+      <a href="{{ url_for('combined_view') }}" class="btn btn-primary btn-sm">Consolidated Statement</a>
     </div>
   </div>
 </div>
 
-<!-- Combined High-Level Running Totals -->
+<!-- Consolidated Metric Cards -->
 <div class="grid-4">
-  <div class="card stat-card income">
-    <div class="stat-label">Combined Income</div>
+  <div class="card">
+    <div class="stat-label">Consolidated Revenue</div>
     <div class="stat-value green">${{ "%.2f"|format(combined_fin.income) }}</div>
-    <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.3rem;">Total revenue earned</div>
+    <div style="font-size:0.75rem; color:var(--text-subtle); margin-top:0.4rem;">Gross recorded income</div>
   </div>
 
-  <div class="card stat-card expense">
-    <div class="stat-label">Combined Expenses</div>
+  <div class="card">
+    <div class="stat-label">Total Outlays</div>
     <div class="stat-value red">${{ "%.2f"|format(combined_fin.expense) }}</div>
-    <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.3rem;">Total business costs</div>
+    <div style="font-size:0.75rem; color:var(--text-subtle); margin-top:0.4rem;">Consolidated operating costs</div>
   </div>
 
-  <div class="card stat-card savings">
-    <div class="stat-label">Combined Savings</div>
+  <div class="card">
+    <div class="stat-label">Capital Reserves</div>
     <div class="stat-value blue">${{ "%.2f"|format(combined_fin.savings) }}</div>
-    <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.3rem;">Set aside in reserve</div>
+    <div style="font-size:0.75rem; color:var(--text-subtle); margin-top:0.4rem;">Allocated to venture reserve</div>
   </div>
 
-  <div class="card stat-card investment">
-    <div class="stat-label">Combined Net Balance</div>
+  <div class="card">
+    <div class="stat-label">Net Margin</div>
     <div class="stat-value {% if combined_fin.net >= 0 %}green{% else %}red{% endif %}">
       ${{ "%.2f"|format(combined_fin.net) }}
     </div>
-    <div style="font-size:0.8rem; color:var(--neutral-gray); margin-top:0.3rem;">Cash Flow (Income - Expenses)</div>
+    <div style="font-size:0.75rem; color:var(--text-subtle); margin-top:0.4rem;">Revenue minus expenses</div>
   </div>
 </div>
 
-<!-- Partner Side-by-Side Cards -->
+<!-- Partner Side-by-Side Execution Cards -->
 <div class="grid-2">
-  <!-- Partner A Card -->
-  <div class="card" style="border-top: 4px solid var(--partner-a);">
+  <!-- Imran Profile Card -->
+  <div class="card" style="border-top: 2px solid var(--accent-indigo);">
     <div class="card-header">
-      <div class="card-title">
-        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:var(--partner-a);"></span>
-        Partner A
+      <div class="card-title" style="color:#ffffff;">
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent-indigo); margin-right:6px;"></span>
+        Imran
       </div>
       <div>
-        {% if current_user and current_user.id == 'partner_a' %}
-          <span class="badge badge-completed">Logged In (Full Edit)</span>
+        {% if current_user and current_user.id == 'imran' %}
+          <span class="badge" style="background:rgba(99, 102, 241, 0.15); color:#818cf8;">Active Partner</span>
         {% else %}
-          <button class="btn btn-outline btn-sm" onclick="promptPartnerLogin('partner_a')">🔑 Log in as A</button>
+          <form action="{{ url_for('switch_partner') }}" method="POST" style="display:inline;">
+            <input type="hidden" name="partner_id" value="imran">
+            <button type="submit" class="btn btn-outline btn-sm">Switch to Imran</button>
+          </form>
         {% endif %}
       </div>
     </div>
 
-    <!-- Finances quick stats -->
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem; margin-bottom:1rem;">
-      <div style="background:#f8fafc; padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
-        <div style="font-size:0.75rem; color:var(--neutral-gray); font-weight:600;">INCOME</div>
-        <div style="font-size:1.25rem; font-weight:700; color:var(--income-green);">${{ "%.2f"|format(a_fin.income) }}</div>
+    <!-- Metrics -->
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem; margin-bottom:1.15rem;">
+      <div style="background:#0f172a; padding:0.85rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <div style="font-size:0.72rem; color:var(--text-subtle); font-weight:600; text-transform:uppercase;">Revenue</div>
+        <div style="font-size:1.25rem; font-weight:700; color:var(--accent-emerald);">${{ "%.2f"|format(a_fin.income) }}</div>
       </div>
-      <div style="background:#f8fafc; padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
-        <div style="font-size:0.75rem; color:var(--neutral-gray); font-weight:600;">EXPENSES</div>
-        <div style="font-size:1.25rem; font-weight:700; color:var(--expense-red);">${{ "%.2f"|format(a_fin.expense) }}</div>
+      <div style="background:#0f172a; padding:0.85rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <div style="font-size:0.72rem; color:var(--text-subtle); font-weight:600; text-transform:uppercase;">Outlays</div>
+        <div style="font-size:1.25rem; font-weight:700; color:var(--accent-rose);">${{ "%.2f"|format(a_fin.expense) }}</div>
       </div>
     </div>
 
-    <!-- Tasks and Penalties -->
-    <div style="margin-bottom:1rem;">
-      <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.3rem;">
-        <span><strong>Weekly Tasks:</strong> {{ a_done_tasks }}/{{ a_total_tasks }} completed</span>
-        <span style="font-weight:700; color:var(--savings-blue);">{{ a_task_rate }}%</span>
+    <!-- Tasks -->
+    <div style="margin-bottom:1.15rem;">
+      <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:0.4rem;">
+        <span style="color:var(--text-muted);">Weekly Execution</span>
+        <span style="font-weight:600; color:#ffffff;">{{ a_done_tasks }}/{{ a_total_tasks }} ({{ a_task_rate }}%)</span>
       </div>
       <div class="progress-container">
         <div class="progress-bar" style="width: {{ a_task_rate }}%;"></div>
       </div>
     </div>
 
-    <div style="display:flex; align-items:center; justify-content:space-between; padding:0.75rem; background:#fffbeb; border-radius:var(--radius-sm); border:1px solid #fde68a; margin-bottom:1rem;">
-      <div>
-        <span style="font-size:0.85rem; font-weight:600; color:#92400e;">Pending Penalties:</span>
-      </div>
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:0.65rem 0.85rem; background:#0f172a; border-radius:var(--radius-sm); border:1px solid var(--border-color); margin-bottom:1.15rem;">
+      <span style="font-size:0.82rem; color:var(--text-muted);">Pending Penalties</span>
       <div>
         {% if a_pending_penalties > 0 %}
           <span class="badge badge-overdue">{{ a_pending_penalties }} Pending</span>
         {% else %}
-          <span class="badge badge-completed">0 Clean Record!</span>
+          <span class="badge" style="background:#1e293b; color:#94a3b8;">0 Pending</span>
         {% endif %}
       </div>
     </div>
 
     <div style="display:flex; gap:0.5rem;">
-      <a href="{{ url_for('money_view', partner_id='partner_a') }}" class="btn btn-outline btn-sm" style="flex:1;">💰 View Money</a>
-      <a href="{{ url_for('tasks_view', partner_id='partner_a') }}" class="btn btn-outline btn-sm" style="flex:1;">✅ View Tasks</a>
+      <a href="{{ url_for('money_view', partner_id='imran') }}" class="btn btn-outline btn-sm" style="flex:1;">Financials</a>
+      <a href="{{ url_for('tasks_view', partner_id='imran') }}" class="btn btn-outline btn-sm" style="flex:1;">Tasks</a>
+      <a href="{{ url_for('goals_view') }}" class="btn btn-outline btn-sm" style="flex:1;">Goals</a>
     </div>
   </div>
 
-  <!-- Partner B Card -->
-  <div class="card" style="border-top: 4px solid var(--partner-b);">
+  <!-- Mikiyas Profile Card -->
+  <div class="card" style="border-top: 2px solid var(--accent-emerald);">
     <div class="card-header">
-      <div class="card-title">
-        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:var(--partner-b);"></span>
-        Partner B
+      <div class="card-title" style="color:#ffffff;">
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent-emerald); margin-right:6px;"></span>
+        Mikiyas
       </div>
       <div>
-        {% if current_user and current_user.id == 'partner_b' %}
-          <span class="badge badge-completed">Logged In (Full Edit)</span>
+        {% if current_user and current_user.id == 'mikiyas' %}
+          <span class="badge" style="background:rgba(16, 185, 129, 0.15); color:#34d399;">Active Partner</span>
         {% else %}
-          <button class="btn btn-outline btn-sm" onclick="promptPartnerLogin('partner_b')">🔑 Log in as B</button>
+          <form action="{{ url_for('switch_partner') }}" method="POST" style="display:inline;">
+            <input type="hidden" name="partner_id" value="mikiyas">
+            <button type="submit" class="btn btn-outline btn-sm">Switch to Mikiyas</button>
+          </form>
         {% endif %}
       </div>
     </div>
 
-    <!-- Finances quick stats -->
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem; margin-bottom:1rem;">
-      <div style="background:#f8fafc; padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
-        <div style="font-size:0.75rem; color:var(--neutral-gray); font-weight:600;">INCOME</div>
-        <div style="font-size:1.25rem; font-weight:700; color:var(--income-green);">${{ "%.2f"|format(b_fin.income) }}</div>
+    <!-- Metrics -->
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem; margin-bottom:1.15rem;">
+      <div style="background:#0f172a; padding:0.85rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <div style="font-size:0.72rem; color:var(--text-subtle); font-weight:600; text-transform:uppercase;">Revenue</div>
+        <div style="font-size:1.25rem; font-weight:700; color:var(--accent-emerald);">${{ "%.2f"|format(b_fin.income) }}</div>
       </div>
-      <div style="background:#f8fafc; padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
-        <div style="font-size:0.75rem; color:var(--neutral-gray); font-weight:600;">EXPENSES</div>
-        <div style="font-size:1.25rem; font-weight:700; color:var(--expense-red);">${{ "%.2f"|format(b_fin.expense) }}</div>
+      <div style="background:#0f172a; padding:0.85rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <div style="font-size:0.72rem; color:var(--text-subtle); font-weight:600; text-transform:uppercase;">Outlays</div>
+        <div style="font-size:1.25rem; font-weight:700; color:var(--accent-rose);">${{ "%.2f"|format(b_fin.expense) }}</div>
       </div>
     </div>
 
-    <!-- Tasks and Penalties -->
-    <div style="margin-bottom:1rem;">
-      <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.3rem;">
-        <span><strong>Weekly Tasks:</strong> {{ b_done_tasks }}/{{ b_total_tasks }} completed</span>
-        <span style="font-weight:700; color:var(--savings-blue);">{{ b_task_rate }}%</span>
+    <!-- Tasks -->
+    <div style="margin-bottom:1.15rem;">
+      <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:0.4rem;">
+        <span style="color:var(--text-muted);">Weekly Execution</span>
+        <span style="font-weight:600; color:#ffffff;">{{ b_done_tasks }}/{{ b_total_tasks }} ({{ b_task_rate }}%)</span>
       </div>
       <div class="progress-container">
-        <div class="progress-bar" style="width: {{ b_task_rate }}%;"></div>
+        <div class="progress-bar" style="width: {{ b_task_rate }}%; background:var(--accent-emerald);"></div>
       </div>
     </div>
 
-    <div style="display:flex; align-items:center; justify-content:space-between; padding:0.75rem; background:#fffbeb; border-radius:var(--radius-sm); border:1px solid #fde68a; margin-bottom:1rem;">
-      <div>
-        <span style="font-size:0.85rem; font-weight:600; color:#92400e;">Pending Penalties:</span>
-      </div>
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:0.65rem 0.85rem; background:#0f172a; border-radius:var(--radius-sm); border:1px solid var(--border-color); margin-bottom:1.15rem;">
+      <span style="font-size:0.82rem; color:var(--text-muted);">Pending Penalties</span>
       <div>
         {% if b_pending_penalties > 0 %}
           <span class="badge badge-overdue">{{ b_pending_penalties }} Pending</span>
         {% else %}
-          <span class="badge badge-completed">0 Clean Record!</span>
+          <span class="badge" style="background:#1e293b; color:#94a3b8;">0 Pending</span>
         {% endif %}
       </div>
     </div>
 
     <div style="display:flex; gap:0.5rem;">
-      <a href="{{ url_for('money_view', partner_id='partner_b') }}" class="btn btn-outline btn-sm" style="flex:1;">💰 View Money</a>
-      <a href="{{ url_for('tasks_view', partner_id='partner_b') }}" class="btn btn-outline btn-sm" style="flex:1;">✅ View Tasks</a>
-    </div>
-  </div>
-</div>
-
-<!-- Partnership Accountability Charter / Habit Reminder -->
-<div class="card" style="background:linear-gradient(135deg, #ffffff, #f8fafc); border-left:4px solid #4f46e5;">
-  <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:0.5rem;">💡 Partnership Accountability Guidelines</h3>
-  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1rem; font-size:0.88rem; color:var(--neutral-gray);">
-    <div>
-      <strong style="color:var(--neutral-dark);">1. Daily Check-in:</strong>
-      <p>Log in every evening or morning, mark off your daily tasks, and record any business expense the day it happens.</p>
-    </div>
-    <div>
-      <strong style="color:var(--neutral-dark);">2. Weekly Review:</strong>
-      <p>Look at the Combined page every Sunday to review total profit, bill status, and investment progress together.</p>
-    </div>
-    <div>
-      <strong style="color:var(--neutral-dark);">3. Fair Consequence System:</strong>
-      <p>Missed tasks automatically trigger penalties. Consequences are safe, constructive, and meant to build discipline!</p>
+      <a href="{{ url_for('money_view', partner_id='mikiyas') }}" class="btn btn-outline btn-sm" style="flex:1;">Financials</a>
+      <a href="{{ url_for('tasks_view', partner_id='mikiyas') }}" class="btn btn-outline btn-sm" style="flex:1;">Tasks</a>
+      <a href="{{ url_for('goals_view') }}" class="btn btn-outline btn-sm" style="flex:1;">Goals</a>
     </div>
   </div>
 </div>

@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Goal Architecture & Accountability - Imran & Mikiyas{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+  <div>
+    <h1 style="font-size: 1.6rem; font-weight: 700;">Goal Architecture &amp; Accountability</h1>
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 0.25rem;">
+      Unified tracking for shared venture targets and personal discipline commitments.
+    </p>
+  </div>
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <button id="requestNotificationBtn" class="btn btn-outline btn-sm">
+      Enable Desktop Reminders
+    </button>
+    <button class="btn btn-primary btn-sm" data-open-modal="addGoalModal">
+      + New Goal Target
+    </button>
+  </div>
+</div>
+
+<!-- Focus & Anti-Distraction Protocol Card -->
+<div class="card" style="margin-bottom: 1.75rem; background: linear-gradient(135deg, #111827, #172033); border-color: #2b3952;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+    <div>
+      <div style="font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent-indigo); margin-bottom:0.25rem;">
+        Focus Protocol &amp; Automated Accountability
+      </div>
+      <h3 style="font-size:1.05rem; font-weight:600; margin-bottom:0.4rem;">
+        Anti-Distraction Reminder Engine Active
+      </h3>
+      <p style="font-size:0.85rem; color:var(--text-muted); max-width:760px; line-height:1.45;">
+        When target deadlines or scheduled checkpoints (e.g. sleep time at 07:00 AM) arrive, the system issues audible chimes and interactive check-in popups. If distracting apps (like TikTok or social media feeds) interfere with goal execution, launch the local <code>run_distraction_guard.bat</code> daemon to terminate non-essential processes automatically.
+      </p>
+    </div>
+    <div>
+      <span class="badge" style="background:rgba(16, 185, 129, 0.15); color:#34d399; padding:0.4rem 0.8rem; border:1px solid rgba(16, 185, 129, 0.3);">
+        Reminders Engine Ready
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Three Column Grid: Shared, Imran, Mikiyas -->
+<div class="grid-3">
+  
+  <!-- 1. Shared Goals Column -->
+  <div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:1px solid var(--border-color);">
+      <h3 style="font-size:1rem; font-weight:600;">Shared Venture Goals</h3>
+      <span class="badge" style="background:#1e293b; color:#94a3b8;">{{ shared_goals|length }} Active</span>
+    </div>
+
+    {% if shared_goals %}
+      {% for goal in shared_goals %}
+        <div class="goal-card {% if goal.is_completed %}completed{% endif %}" 
+             data-goal-id="{{ goal.id }}" 
+             data-goal-time="{{ goal.target_time or '' }}" 
+             data-goal-date="{{ goal.target_date or '' }}" 
+             data-goal-title="{{ goal.title|escape }}" 
+             data-goal-completed="{{ goal.is_completed }}">
+          <div style="flex:1;">
+            <div class="goal-title">{{ goal.title }}</div>
+            {% if goal.description %}
+              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">{{ goal.description }}</div>
+            {% endif %}
+            <div class="goal-meta">
+              {% if goal.target_time %}<span>Time: {{ goal.target_time }}</span>{% endif %}
+              {% if goal.target_date %}<span>Target: {{ goal.target_date }}</span>{% endif %}
+              <span class="badge" style="background:#1e293b; color:#cbd5e1;">{{ goal.category }}</span>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:0.35rem; align-items:flex-end;">
+            <form action="{{ url_for('toggle_goal_status', goal_id=goal.id) }}" method="POST">
+              <button type="submit" class="btn btn-sm {% if goal.is_completed %}btn-secondary{% else %}btn-success{% endif %}" style="font-size:0.75rem;">
+                {% if goal.is_completed %}Completed{% else %}Mark Done{% endif %}
+              </button>
+            </form>
+            <form action="{{ url_for('delete_goal', goal_id=goal.id) }}" method="POST">
+              <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" style="font-size:0.7rem; padding:0.15rem 0.4rem;">
+                Remove
+              </button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div style="padding:2rem 1rem; border:1px dashed var(--border-color); border-radius:var(--radius-md); text-align:center; color:var(--text-subtle); font-size:0.85rem;">
+        No shared goals recorded yet.
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- 2. Imran's Personal Goals Column -->
+  <div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:1px solid var(--border-color);">
+      <h3 style="font-size:1rem; font-weight:600; color:#818cf8;">Imran's Personal Goals</h3>
+      <span class="badge" style="background:#1e293b; color:#94a3b8;">{{ imran_goals|length }} Active</span>
+    </div>
+
+    {% if imran_goals %}
+      {% for goal in imran_goals %}
+        <div class="goal-card {% if goal.is_completed %}completed{% endif %}" 
+             data-goal-id="{{ goal.id }}" 
+             data-goal-time="{{ goal.target_time or '' }}" 
+             data-goal-date="{{ goal.target_date or '' }}" 
+             data-goal-title="{{ goal.title|escape }}" 
+             data-goal-completed="{{ goal.is_completed }}">
+          <div style="flex:1;">
+            <div class="goal-title">{{ goal.title }}</div>
+            {% if goal.description %}
+              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">{{ goal.description }}</div>
+            {% endif %}
+            <div class="goal-meta">
+              {% if goal.target_time %}<span>Time: {{ goal.target_time }}</span>{% endif %}
+              {% if goal.target_date %}<span>Target: {{ goal.target_date }}</span>{% endif %}
+              <span class="badge" style="background:#1e293b; color:#cbd5e1;">{{ goal.category }}</span>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:0.35rem; align-items:flex-end;">
+            <form action="{{ url_for('toggle_goal_status', goal_id=goal.id) }}" method="POST">
+              <button type="submit" class="btn btn-sm {% if goal.is_completed %}btn-secondary{% else %}btn-success{% endif %}" style="font-size:0.75rem;">
+                {% if goal.is_completed %}Completed{% else %}Mark Done{% endif %}
+              </button>
+            </form>
+            <form action="{{ url_for('delete_goal', goal_id=goal.id) }}" method="POST">
+              <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" style="font-size:0.7rem; padding:0.15rem 0.4rem;">
+                Remove
+              </button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div style="padding:2rem 1rem; border:1px dashed var(--border-color); border-radius:var(--radius-md); text-align:center; color:var(--text-subtle); font-size:0.85rem;">
+        No personal goals for Imran yet.
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- 3. Mikiyas's Personal Goals Column -->
+  <div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:1px solid var(--border-color);">
+      <h3 style="font-size:1rem; font-weight:600; color:#34d399;">Mikiyas's Personal Goals</h3>
+      <span class="badge" style="background:#1e293b; color:#94a3b8;">{{ mikiyas_goals|length }} Active</span>
+    </div>
+
+    {% if mikiyas_goals %}
+      {% for goal in mikiyas_goals %}
+        <div class="goal-card {% if goal.is_completed %}completed{% endif %}" 
+             data-goal-id="{{ goal.id }}" 
+             data-goal-time="{{ goal.target_time or '' }}" 
+             data-goal-date="{{ goal.target_date or '' }}" 
+             data-goal-title="{{ goal.title|escape }}" 
+             data-goal-completed="{{ goal.is_completed }}">
+          <div style="flex:1;">
+            <div class="goal-title">{{ goal.title }}</div>
+            {% if goal.description %}
+              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">{{ goal.description }}</div>
+            {% endif %}
+            <div class="goal-meta">
+              {% if goal.target_time %}<span>Time: {{ goal.target_time }}</span>{% endif %}
+              {% if goal.target_date %}<span>Target: {{ goal.target_date }}</span>{% endif %}
+              <span class="badge" style="background:#1e293b; color:#cbd5e1;">{{ goal.category }}</span>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:0.35rem; align-items:flex-end;">
+            <form action="{{ url_for('toggle_goal_status', goal_id=goal.id) }}" method="POST">
+              <button type="submit" class="btn btn-sm {% if goal.is_completed %}btn-secondary{% else %}btn-success{% endif %}" style="font-size:0.75rem;">
+                {% if goal.is_completed %}Completed{% else %}Mark Done{% endif %}
+              </button>
+            </form>
+            <form action="{{ url_for('delete_goal', goal_id=goal.id) }}" method="POST">
+              <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" style="font-size:0.7rem; padding:0.15rem 0.4rem;">
+                Remove
+              </button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div style="padding:2rem 1rem; border:1px dashed var(--border-color); border-radius:var(--radius-md); text-align:center; color:var(--text-subtle); font-size:0.85rem;">
+        No personal goals for Mikiyas yet.
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Focus Screen Alert Modal -->
+<div class="modal-overlay" id="focusAlertModal">
+  <div class="modal-box" style="border:1px solid #f43f5e; box-shadow:0 0 30px rgba(244,63,94,0.3);">
+    <div class="modal-header" style="background:#201217; border-bottom:1px solid #4c1d29;">
+      <h3 class="modal-title" style="color:#fb7185;">Accountability Checkpoint</h3>
+      <button class="modal-close" data-close-modal="focusAlertModal">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align:center; padding:2rem 1.5rem;">
+      <div style="width:50px; height:50px; border-radius:50%; background:rgba(244,63,94,0.15); border:1px solid #f43f5e; margin:0 auto 1.25rem auto; display:flex; align-items:center; justify-content:center;">
+        <div style="width:16px; height:16px; background:#f43f5e; border-radius:2px;"></div>
+      </div>
+      <h3 style="font-size:1.15rem; font-weight:700; margin-bottom:0.6rem;">Goal Milestone Check-In</h3>
+      <p id="focusAlertMessage" style="color:var(--text-muted); font-size:0.9rem; line-height:1.45; margin-bottom:1.5rem;">
+        Have you completed your scheduled commitments? Stop scrolling distractions!
+      </p>
+      <div style="display:flex; justify-content:center; gap:0.75rem;">
+        <button type="button" class="btn btn-secondary" data-close-modal="focusAlertModal">I Acknowledge &amp; Return to Work</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Goal Modal -->
+<div class="modal-overlay" id="addGoalModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">New Goal Objective</h3>
+      <button class="modal-close" data-close-modal="addGoalModal">&times;</button>
+    </div>
+    <form action="{{ url_for('add_goal') }}" method="POST">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Goal Ownership *</label>
+          <select name="goal_type" class="form-select" required>
+            <option value="shared">Shared Venture Goal (Imran &amp; Mikiyas Together)</option>
+            <option value="imran" {% if current_user and current_user.id == 'imran' %}selected{% endif %}>Imran's Personal Goal</option>
+            <option value="mikiyas" {% if current_user and current_user.id == 'mikiyas' %}selected{% endif %}>Mikiyas's Personal Goal</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Goal Description / Title *</label>
+          <input type="text" name="title" class="form-input" placeholder="e.g. Sleep by 07:00 AM, Ship version 1, Run 5km" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Detailed Notes / Criteria (Optional)</label>
+          <textarea name="description" class="form-textarea" rows="2" placeholder="Specific guidelines or milestones"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Target Time (HH:MM)</label>
+            <input type="time" name="target_time" class="form-input" placeholder="e.g. 07:00">
+            <div class="form-hint">Used for automated daily reminder alerts.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target Date</label>
+            <input type="date" name="target_date" class="form-input" value="{{ today_str }}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select name="category" class="form-select">
+            <option value="Habit / Sleep">Habit / Sleep Schedule</option>
+            <option value="Venture / Revenue">Venture / Revenue Target</option>
+            <option value="Health / Fitness">Health &amp; Fitness</option>
+            <option value="Deep Focus">Deep Focus &amp; Study</option>
+            <option value="General">General</option>
+          </select>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.5rem;">
+          <button type="button" class="btn btn-secondary" data-close-modal="addGoalModal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Goal Target</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

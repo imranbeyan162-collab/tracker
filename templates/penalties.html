@@ -1,177 +1,135 @@
 {% extends "base.html" %}
 
-{% block title %}Accountability & Penalties - Partner Tracker{% endblock %}
+{% block title %}Accountability Ledger - Imran & Mikiyas{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 1.5rem; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+<div style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
   <div>
-    <h1 style="font-size: 1.8rem; font-weight: 800;">⚖️ Accountability &amp; Consequence Board</h1>
-    <p style="color: var(--neutral-gray); font-size: 0.95rem;">
-      When weekly tasks are missed, designated consequences are automatically triggered to maintain team discipline.
+    <h1 style="font-size: 1.6rem; font-weight: 700;">Accountability &amp; Penalty Ledger</h1>
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 0.25rem;">
+      Missed task commitments trigger designated accountability consequences automatically.
     </p>
   </div>
   <div>
     <a href="{{ url_for('settings_view') }}" class="btn btn-outline btn-sm">
-      ⚙️ Set My Default Consequence
+      Configure Consequence Rule
     </a>
   </div>
 </div>
 
-<!-- Rule & Safety Reminder Banner -->
-<div class="card" style="background:#fffbeb; border:1px solid #fde68a; margin-bottom:1.5rem; padding:1rem 1.25rem;">
-  <div style="display:flex; align-items:center; gap:0.5rem; font-weight:700; color:#92400e; margin-bottom:0.3rem;">
-    <span>🛡️ Partnership Consequence Code of Conduct</span>
-  </div>
-  <p style="font-size:0.88rem; color:#78350f; line-height:1.4;">
-    Consequences should be safe, positive, constructive, and fair (e.g. cooking a favorite meal for your partner, tackling an extra workspace cleanup, or buying coffee/treat). Never assign or agree to harmful, embarrassing, or unsafe punishments.
-  </p>
-</div>
-
-<!-- Side-by-Side Partner Penalty Boards -->
+<!-- Side-by-Side Accountability Columns -->
 <div class="grid-2">
-  <!-- Partner A Board -->
-  <div class="card" style="border-top: 4px solid var(--partner-a);">
+  <!-- Imran Accountability -->
+  <div class="card" style="border-top: 2px solid var(--accent-indigo);">
     <div class="card-header">
-      <div class="card-title">
-        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:var(--partner-a);"></span>
-        Partner A's Penalties
-      </div>
+      <div class="card-title" style="color:#ffffff;">Imran's Accountability Log</div>
       <div>
         {% if a_pending_count > 0 %}
           <span class="badge badge-overdue">{{ a_pending_count }} Pending</span>
         {% else %}
-          <span class="badge badge-completed">0 Clean Record</span>
+          <span class="badge" style="background:#1e293b; color:#94a3b8;">0 Pending</span>
         {% endif %}
       </div>
     </div>
 
-    <!-- Default agreed consequence -->
-    <div style="background:#f8fafc; border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.75rem; margin-bottom:1rem; font-size:0.85rem;">
-      <span style="color:var(--neutral-gray);">Agreed consequence for missed tasks:</span>
-      <div style="font-weight:700; color:var(--neutral-dark); margin-top:0.2rem;">
-        "{{ partner_a.default_consequence }}"
+    <div style="background:#0f172a; border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.85rem; margin-bottom:1.25rem; font-size:0.82rem;">
+      <span style="color:var(--text-subtle); text-transform:uppercase; font-size:0.7rem; font-weight:600; letter-spacing:0.04em;">Agreed Consequence:</span>
+      <div style="font-weight:600; color:#ffffff; margin-top:0.25rem;">
+        "{{ partner_a.default_consequence or 'Complete designated accountability task' }}"
       </div>
     </div>
 
-    <h4 style="font-size:0.95rem; font-weight:700; margin-bottom:0.5rem;">Pending Consequences</h4>
+    <h4 style="font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-subtle); margin-bottom:0.75rem;">Pending Obligations</h4>
     {% if a_pending_penalties %}
       {% for p in a_pending_penalties %}
-        <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:var(--radius-sm); padding:0.85rem; margin-bottom:0.75rem;">
+        <div style="background:rgba(244, 63, 94, 0.08); border:1px solid rgba(244, 63, 94, 0.25); border-radius:var(--radius-sm); padding:0.85rem; margin-bottom:0.75rem;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
             <div>
-              <div style="font-weight:700; color:#991b1b; font-size:0.95rem;">{{ p.consequence }}</div>
-              <div style="font-size:0.82rem; color:var(--neutral-gray); margin-top:0.25rem;">{{ p.reason }}</div>
-              <div style="font-size:0.75rem; color:#94a3b8; margin-top:0.2rem;">Triggered on: {{ p.created_date }}</div>
+              <div style="font-weight:600; color:#fb7185; font-size:0.9rem;">{{ p.consequence }}</div>
+              <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem;">{{ p.reason }}</div>
+              <div style="font-size:0.72rem; color:var(--text-subtle); margin-top:0.2rem;">Date: {{ p.created_date }}</div>
             </div>
             <div>
-              {% if current_user and current_user.id == 'partner_a' %}
-                <form action="{{ url_for('complete_penalty', penalty_id=p.id) }}" method="POST">
-                  <button type="submit" class="btn btn-success btn-sm">
-                    ✓ Completed!
-                  </button>
-                </form>
-              {% else %}
-                <button class="btn btn-secondary btn-sm" onclick="promptPartnerLogin('partner_a')">
-                  🔒 Partner A Login
+              <form action="{{ url_for('complete_penalty', penalty_id=p.id) }}" method="POST">
+                <button type="submit" class="btn btn-success btn-sm" style="font-size:0.75rem;">
+                  Mark Fulfilled
                 </button>
-              {% endif %}
+              </form>
             </div>
           </div>
         </div>
       {% endfor %}
     {% else %}
-      <div style="padding:1rem 0; color:var(--neutral-gray); font-size:0.88rem; text-align:center;">
-        🎉 No pending penalties! Partner A is all caught up.
+      <div style="padding:1.5rem 0; color:var(--text-subtle); font-size:0.85rem; text-align:center;">
+        No pending consequences. Clean accountability record.
       </div>
     {% endif %}
 
-    <!-- Partner A History -->
     {% if a_completed_penalties %}
-      <h4 style="font-size:0.9rem; font-weight:700; color:var(--neutral-gray); margin:1.25rem 0 0.5rem 0;">Completed History</h4>
-      <div style="max-height: 180px; overflow-y: auto;">
-        {% for cp in a_completed_penalties %}
-          <div style="font-size:0.82rem; padding:0.4rem 0; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between;">
-            <div>
-              <span style="color:#059669; font-weight:600;">✓ {{ cp.consequence }}</span>
-              <span style="color:#94a3b8;"> ({{ cp.reason }})</span>
-            </div>
-            <div style="color:#94a3b8; font-size:0.75rem;">{{ cp.completed_date }}</div>
-          </div>
-        {% endfor %}
-      </div>
+      <h4 style="font-size:0.82rem; font-weight:600; text-transform:uppercase; color:var(--text-subtle); margin:1.5rem 0 0.5rem 0;">Resolved History</h4>
+      {% for cp in a_completed_penalties %}
+        <div style="font-size:0.78rem; padding:0.4rem 0; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between;">
+          <span style="color:var(--accent-emerald);">Fulfilled: {{ cp.consequence }}</span>
+          <span style="color:var(--text-subtle);">{{ cp.completed_date }}</span>
+        </div>
+      {% endfor %}
     {% endif %}
   </div>
 
-  <!-- Partner B Board -->
-  <div class="card" style="border-top: 4px solid var(--partner-b);">
+  <!-- Mikiyas Accountability -->
+  <div class="card" style="border-top: 2px solid var(--accent-emerald);">
     <div class="card-header">
-      <div class="card-title">
-        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:var(--partner-b);"></span>
-        Partner B's Penalties
-      </div>
+      <div class="card-title" style="color:#ffffff;">Mikiyas's Accountability Log</div>
       <div>
         {% if b_pending_count > 0 %}
           <span class="badge badge-overdue">{{ b_pending_count }} Pending</span>
         {% else %}
-          <span class="badge badge-completed">0 Clean Record</span>
+          <span class="badge" style="background:#1e293b; color:#94a3b8;">0 Pending</span>
         {% endif %}
       </div>
     </div>
 
-    <!-- Default agreed consequence -->
-    <div style="background:#f8fafc; border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.75rem; margin-bottom:1rem; font-size:0.85rem;">
-      <span style="color:var(--neutral-gray);">Agreed consequence for missed tasks:</span>
-      <div style="font-weight:700; color:var(--neutral-dark); margin-top:0.2rem;">
-        "{{ partner_b.default_consequence }}"
+    <div style="background:#0f172a; border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.85rem; margin-bottom:1.25rem; font-size:0.82rem;">
+      <span style="color:var(--text-subtle); text-transform:uppercase; font-size:0.7rem; font-weight:600; letter-spacing:0.04em;">Agreed Consequence:</span>
+      <div style="font-weight:600; color:#ffffff; margin-top:0.25rem;">
+        "{{ partner_b.default_consequence or 'Complete designated accountability task' }}"
       </div>
     </div>
 
-    <h4 style="font-size:0.95rem; font-weight:700; margin-bottom:0.5rem;">Pending Consequences</h4>
+    <h4 style="font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-subtle); margin-bottom:0.75rem;">Pending Obligations</h4>
     {% if b_pending_penalties %}
       {% for p in b_pending_penalties %}
-        <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:var(--radius-sm); padding:0.85rem; margin-bottom:0.75rem;">
+        <div style="background:rgba(244, 63, 94, 0.08); border:1px solid rgba(244, 63, 94, 0.25); border-radius:var(--radius-sm); padding:0.85rem; margin-bottom:0.75rem;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
             <div>
-              <div style="font-weight:700; color:#991b1b; font-size:0.95rem;">{{ p.consequence }}</div>
-              <div style="font-size:0.82rem; color:var(--neutral-gray); margin-top:0.25rem;">{{ p.reason }}</div>
-              <div style="font-size:0.75rem; color:#94a3b8; margin-top:0.2rem;">Triggered on: {{ p.created_date }}</div>
+              <div style="font-weight:600; color:#fb7185; font-size:0.9rem;">{{ p.consequence }}</div>
+              <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem;">{{ p.reason }}</div>
+              <div style="font-size:0.72rem; color:var(--text-subtle); margin-top:0.2rem;">Date: {{ p.created_date }}</div>
             </div>
             <div>
-              {% if current_user and current_user.id == 'partner_b' %}
-                <form action="{{ url_for('complete_penalty', penalty_id=p.id) }}" method="POST">
-                  <button type="submit" class="btn btn-success btn-sm">
-                    ✓ Completed!
-                  </button>
-                </form>
-              {% else %}
-                <button class="btn btn-secondary btn-sm" onclick="promptPartnerLogin('partner_b')">
-                  🔒 Partner B Login
+              <form action="{{ url_for('complete_penalty', penalty_id=p.id) }}" method="POST">
+                <button type="submit" class="btn btn-success btn-sm" style="font-size:0.75rem;">
+                  Mark Fulfilled
                 </button>
-              {% endif %}
+              </form>
             </div>
           </div>
         </div>
       {% endfor %}
     {% else %}
-      <div style="padding:1rem 0; color:var(--neutral-gray); font-size:0.88rem; text-align:center;">
-        🎉 No pending penalties! Partner B is all caught up.
+      <div style="padding:1.5rem 0; color:var(--text-subtle); font-size:0.85rem; text-align:center;">
+        No pending consequences. Clean accountability record.
       </div>
     {% endif %}
 
-    <!-- Partner B History -->
     {% if b_completed_penalties %}
-      <h4 style="font-size:0.9rem; font-weight:700; color:var(--neutral-gray); margin:1.25rem 0 0.5rem 0;">Completed History</h4>
-      <div style="max-height: 180px; overflow-y: auto;">
-        {% for cp in b_completed_penalties %}
-          <div style="font-size:0.82rem; padding:0.4rem 0; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between;">
-            <div>
-              <span style="color:#059669; font-weight:600;">✓ {{ cp.consequence }}</span>
-              <span style="color:#94a3b8;"> ({{ cp.reason }})</span>
-            </div>
-            <div style="color:#94a3b8; font-size:0.75rem;">{{ cp.completed_date }}</div>
-          </div>
-        {% endfor %}
-      </div>
+      <h4 style="font-size:0.82rem; font-weight:600; text-transform:uppercase; color:var(--text-subtle); margin:1.5rem 0 0.5rem 0;">Resolved History</h4>
+      {% for cp in b_completed_penalties %}
+        <div style="font-size:0.78rem; padding:0.4rem 0; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between;">
+          <span style="color:var(--accent-emerald);">Fulfilled: {{ cp.consequence }}</span>
+          <span style="color:var(--text-subtle);">{{ cp.completed_date }}</span>
+        </div>
+      {% endfor %}
     {% endif %}
   </div>
 </div>
