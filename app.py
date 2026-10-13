@@ -125,9 +125,9 @@ def serve_proof_upload(filename):
 
 @app.route("/api/index", methods=["GET", "POST"])
 def api_index_endpoint():
-    """Fallback handler for Vercel rewrites to ensure /api/index never 404s."""
+    """Fallback handler for Vercel rewrites."""
     if not session.get("logged_in_user"):
-        return redirect(url_for("login"))
+        return render_template("login.html")
     return redirect(url_for("index"))
 
 @app.route("/login", methods=["GET", "POST"])
