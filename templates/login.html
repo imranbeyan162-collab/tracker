@@ -179,7 +179,11 @@
 
     <!-- Login Card -->
     <div class="portal-card">
-      <form action="{{ url_for('login') }}" method="POST">
+      <div id="client-alert" class="alert-box" style="display:none;">
+        <span id="client-alert-msg"></span>
+      </div>
+
+      <form id="login-form" action="{{ url_for('login') }}" method="POST">
         <div class="form-group">
           <label class="form-label" for="partner_id">Partner Identity</label>
           <select id="partner_id" name="partner_id" class="form-control" required>
@@ -193,7 +197,7 @@
           <input id="pin" type="password" name="pin" class="form-control" placeholder="Enter private password" required autofocus autocomplete="current-password">
         </div>
 
-        <button type="submit" class="btn-submit">
+        <button id="login-btn" type="submit" class="btn-submit">
           Authenticate &amp; Unlock Workspace
         </button>
       </form>
@@ -204,5 +208,51 @@
     </div>
   </div>
 
+  <script>
+    const form = document.getElementById('login-form');
+    const btn = document.getElementById('login-btn');
+    const alertBox = document.getElementById('client-alert');
+    const alertMsg = document.getElementById('client-alert-msg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertBox.style.display = 'none';
+      btn.disabled = true;
+      btn.innerText = 'Verifying Credentials...';
+
+      const partner_id = document.getElementById('partner_id').value;
+      const pin = document.getElementById('pin').value.trim();
+
+      try {
+        const response = await fetch('{{ url_for("login") }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ partner_id, pin })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          btn.innerText = 'Unlocked! Opening Workspace...';
+          btn.style.background = '#10b981';
+          window.location.href = data.redirect || '/';
+        } else {
+          btn.disabled = false;
+          btn.innerText = 'Authenticate & Unlock Workspace';
+          btn.style.background = '#6366f1';
+          alertMsg.innerText = data.error || 'Incorrect security code. Access denied.';
+          alertBox.style.display = 'block';
+          document.getElementById('pin').focus();
+        }
+      } catch (err) {
+        // Fallback to traditional form submission if fetch encounters an edge error
+        form.submit();
+      }
+    });
+  </script>
 </body>
 </html>
+

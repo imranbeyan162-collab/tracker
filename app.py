@@ -42,8 +42,16 @@ try:
 except Exception:
     pass
 
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max
+app.config.update(
+    UPLOAD_FOLDER=UPLOAD_FOLDER,
+    MAX_CONTENT_LENGTH=16 * 1024 * 1024,
+    SESSION_COOKIE_NAME="tracker_session",
+    SESSION_COOKIE_SECURE=is_serverless,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_PATH="/",
+    PERMANENT_SESSION_LIFETIME=timedelta(days=60),
+)
 
 # Ensure clean database initialization
 init_db(seed=False)
@@ -52,8 +60,15 @@ init_db(seed=False)
 # Master Passwords (never displayed on screen)
 DEFAULT_MASTER_PASSWORDS = [
     "imran&mikiyas@gmail",
+    "imran&mikiyas@gmail.com",
     "imranandmicas@gmail.com",
-    "imran&mikiyas@gmail.com"
+    "imranandmikiyas@gmail.com",
+    "imranandmikiyas@gmail",
+    "imran&micas@gmail.com",
+    "imran & mikiyas",
+    "imran and mikiyas",
+    "imranandmicas",
+    "imran&mikiyas",
 ]
 
 
@@ -67,8 +82,15 @@ def require_authentication_gate():
     if request.path in allowed_paths:
         return None
 
-    if not session.get("logged_in_user"):
-        return redirect(url_for("login"))
+    # Dual-redundancy: Check signed session cookie or persistent partner cookie
+    user = session.get("logged_in_user") or request.cookies.get("partner_user")
+    if user:
+        if not session.get("logged_in_user"):
+            session["logged_in_user"] = user
+            session.permanent = True
+        return None
+
+    return redirect(url_for("login"))
 
 
 
@@ -137,18 +159,20 @@ def api_index_endpoint():
     return redirect(url_for("index"))
 
 @app.route("/login", methods=["GET", "POST"])
-
 def login():
     """Access portal login asking for the private password."""
     if request.method == "GET":
-        if session.get("logged_in_user"):
+        if session.get("logged_in_user") or request.cookies.get("partner_user"):
             return redirect(url_for("index"))
         return render_template("login.html")
 
-    partner_id = request.form.get("partner_id", "imran")
-    pin = request.form.get("pin", "").strip()
+    json_data = request.get_json(silent=True) if request.is_json else {}
+    partner_id = (json_data.get("partner_id") if json_data else request.form.get("partner_id")) or "imran"
+    pin = (json_data.get("pin") if json_data else request.form.get("pin", "")).strip()
 
     if not pin:
+        if request.is_json:
+            return jsonify({"success": False, "error": "Password required to access workspace."}), 400
         flash("Password required to access workspace.", "danger")
         return render_template("login.html")
 
@@ -163,9 +187,27 @@ def login():
 
     if is_master_match or is_hash_match:
         session["logged_in_user"] = partner_id
+        session.permanent = True
         flash(f"Workspace unlocked. Welcome, {user['name'] if user else partner_id.capitalize()}.", "success")
-        return redirect(url_for("index"))
+
+        if request.is_json:
+            resp = jsonify({"success": True, "redirect": url_for("index")})
+        else:
+            resp = redirect(url_for("index"))
+
+        resp.set_cookie(
+            "partner_user",
+            partner_id,
+            max_age=60 * 60 * 24 * 60,
+            path="/",
+            samesite="Lax",
+            secure=is_serverless,
+            httponly=True,
+        )
+        return resp
     else:
+        if request.is_json:
+            return jsonify({"success": False, "error": "Incorrect security code. Access denied."}), 401
         flash("Incorrect security code. Access denied.", "danger")
         return render_template("login.html")
 
@@ -174,7 +216,10 @@ def login():
 def logout():
     session.pop("logged_in_user", None)
     flash("Session terminated. Workspace locked.", "info")
-    return redirect(url_for("login"))
+    resp = redirect(url_for("login"))
+    resp.delete_cookie("partner_user", path="/")
+    return resp
+
 
 
 @app.route("/switch-partner", methods=["POST"])
