@@ -22,17 +22,24 @@ if __name__ == "__main__":
     print(" 🤝 PARTNER TRACKER - Two-Person Money & Task Tracker")
     print("=" * 60)
     print("[*] Checking and initializing database...")
-    init_db(seed=True)
-    print("[+] Database verified.")
+    init_db(seed=False)
+    print("[+] Database verified (Clean Slate).")
     print("------------------------------------------------------------")
-    print(" 🔑 Partner A Default PIN: 111111")
-    print(" 🔑 Partner B Default PIN: 222222")
-    print("------------------------------------------------------------")
-    print("[*] Starting web server on http://127.0.0.1:5000 ...")
+    print("[*] Starting executive web server on http://127.0.0.1:5000 ...")
     print("    Press Ctrl+C to stop the server at any time.")
+    import socket
+    local_ip = "127.0.0.1"
+    try:
+        local_ip = socket.gethostbyname(socket.gethostname())
+    except Exception:
+        pass
+    print("------------------------------------------------------------")
+    print(f" 💻 Laptop access:        http://127.0.0.1:5000")
+    print(f" 📱 Mobile Phone (Wi-Fi): http://{local_ip}:5000")
     print("=" * 60)
 
     # Schedule browser opening after 1.2 seconds
     Timer(1.2, open_browser).start()
     
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=False)
+
