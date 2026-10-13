@@ -8,9 +8,20 @@ import os
 from datetime import datetime, date, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Path to database file
-DB_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(DB_DIR, "partner_tracker.db")
+# Path to database file (supporting both local dev and Vercel serverless /tmp)
+if os.environ.get("VERCEL"):
+    DB_DIR = "/tmp"
+    DB_PATH = os.path.join(DB_DIR, "partner_tracker.db")
+    repo_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "partner_tracker.db")
+    if not os.path.exists(DB_PATH) and os.path.exists(repo_db):
+        try:
+            import shutil
+            shutil.copy2(repo_db, DB_PATH)
+        except Exception:
+            pass
+else:
+    DB_DIR = os.path.dirname(os.path.abspath(__file__))
+    DB_PATH = os.path.join(DB_DIR, "partner_tracker.db")
 
 
 def get_db_connection():
