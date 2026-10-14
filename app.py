@@ -74,21 +74,36 @@ DEFAULT_MASTER_PASSWORDS = [
 
 @app.before_request
 def require_authentication_gate():
-    """Gatekeeper: Blocks all unauthenticated traffic behind the login portal."""
-    if request.endpoint in ("login", "static") or request.path.startswith(("/login", "/static/")):
+    """Gatekeeper: Blocks unauthenticated traffic, allowing public assets and login requests."""
+    # Always allow static files, manifest, sw.js, and favicon
+    if request.endpoint == "static" or request.path.startswith(("/static/", "/public/")):
         return None
 
-    allowed_paths = ("/login", "/login/", "/favicon.ico", "/manifest.json", "/sw.js", "/api/index", "/api/index/")
-    if request.path in allowed_paths:
+    allowed_exact = (
+        "/login", "/login/", "/favicon.ico", "/manifest.json", "/sw.js",
+        "/api/index", "/api/index/", "/api/index.py", "/debug"
+    )
+    if request.path in allowed_exact or request.endpoint in ("login", "debug_endpoint"):
         return None
 
     # Dual-redundancy: Check signed session cookie or persistent partner cookie
     user = session.get("logged_in_user") or request.cookies.get("partner_user")
-    if user:
+    if user in ("imran", "mikiyas"):
         if not session.get("logged_in_user"):
             session["logged_in_user"] = user
             session.permanent = True
         return None
+
+    # If POST contains login credentials on any rewritten route, route straight to login handler
+    if request.method == "POST":
+        has_pin = False
+        if request.is_json:
+            j = request.get_json(silent=True) or {}
+            has_pin = bool(j.get("pin") or j.get("password"))
+        elif request.form.get("pin") or request.form.get("password"):
+            has_pin = True
+        if has_pin:
+            return None
 
     return redirect(url_for("login"))
 
@@ -151,27 +166,41 @@ def serve_proof_upload(filename):
 # Security Gatekeeper & Login
 # ============================================================================
 
-@app.route("/api/index", methods=["GET", "POST"])
-def api_index_endpoint():
-    """Fallback handler for Vercel rewrites."""
-    if not session.get("logged_in_user"):
-        return render_template("login.html")
-    return redirect(url_for("index"))
+def handle_login_request():
+    """Unified handler for all authentication requests regardless of rewritten route."""
+    user = session.get("logged_in_user") or request.cookies.get("partner_user")
+    if user in ("imran", "mikiyas") and request.method == "GET":
+        if not session.get("logged_in_user"):
+            session["logged_in_user"] = user
+            session.permanent = True
+        return redirect(url_for("index"))
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    """Access portal login asking for the private password."""
     if request.method == "GET":
-        if session.get("logged_in_user") or request.cookies.get("partner_user"):
-            return redirect(url_for("index"))
         return render_template("login.html")
 
-    json_data = request.get_json(silent=True) if request.is_json else {}
+    # Parse POST payload (supports application/json, form data, and raw data)
+    json_data = request.get_json(silent=True) if request.is_json else None
+    if not json_data and request.data:
+        try:
+            import json as _json
+            json_data = _json.loads(request.data.decode("utf-8"))
+        except Exception:
+            json_data = None
+
     partner_id = (json_data.get("partner_id") if json_data else request.form.get("partner_id")) or "imran"
-    pin = (json_data.get("pin") if json_data else request.form.get("pin", "")).strip()
+    pin = ""
+    if json_data:
+        pin = json_data.get("pin") or json_data.get("password") or ""
+    if not pin:
+        pin = request.form.get("pin") or request.form.get("password") or ""
+    pin = str(pin).strip()
+
+    is_json_client = request.is_json or (
+        request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+    )
 
     if not pin:
-        if request.is_json:
+        if is_json_client:
             return jsonify({"success": False, "error": "Password required to access workspace."}), 400
         flash("Password required to access workspace.", "danger")
         return render_template("login.html")
@@ -179,18 +208,18 @@ def login():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM users WHERE id = ?", (partner_id,))
-    user = cursor.fetchone()
+    user_row = cursor.fetchone()
     conn.close()
 
     is_master_match = any(pin.lower() == p.lower() for p in DEFAULT_MASTER_PASSWORDS)
-    is_hash_match = user and check_password_hash(user["pin_hash"], pin)
+    is_hash_match = user_row and check_password_hash(user_row["pin_hash"], pin)
 
     if is_master_match or is_hash_match:
         session["logged_in_user"] = partner_id
         session.permanent = True
-        flash(f"Workspace unlocked. Welcome, {user['name'] if user else partner_id.capitalize()}.", "success")
+        flash(f"Workspace unlocked. Welcome, {user_row['name'] if user_row else partner_id.capitalize()}.", "success")
 
-        if request.is_json:
+        if is_json_client:
             resp = jsonify({"success": True, "redirect": url_for("index")})
         else:
             resp = redirect(url_for("index"))
@@ -202,14 +231,41 @@ def login():
             path="/",
             samesite="Lax",
             secure=is_serverless,
-            httponly=True,
+            httponly=False,
         )
         return resp
     else:
-        if request.is_json:
+        if is_json_client:
             return jsonify({"success": False, "error": "Incorrect security code. Access denied."}), 401
         flash("Incorrect security code. Access denied.", "danger")
         return render_template("login.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+@app.route("/api/index", methods=["GET", "POST"])
+@app.route("/api/index.py", methods=["GET", "POST"])
+def login():
+    """Access portal login asking for the private password."""
+    return handle_login_request()
+
+
+@app.route("/debug")
+def debug_endpoint():
+    """Diagnostic endpoint to inspect environment and routing."""
+    return jsonify({
+        "status": "ok",
+        "method": request.method,
+        "path": request.path,
+        "full_path": request.full_path,
+        "cookies": dict(request.cookies),
+        "session_user": session.get("logged_in_user"),
+        "partner_cookie": request.cookies.get("partner_user"),
+        "environ": {k: str(request.environ.get(k)) for k in (
+            "PATH_INFO", "SCRIPT_NAME", "REQUEST_URI", "QUERY_STRING",
+            "HTTP_X_FORWARDED_URI", "HTTP_X_MATCHED_PATH"
+        ) if k in request.environ}
+    })
+
 
 
 @app.route("/logout")

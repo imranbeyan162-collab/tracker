@@ -226,6 +226,7 @@
       try {
         const response = await fetch('{{ url_for("login") }}', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
@@ -233,20 +234,36 @@
           body: JSON.stringify({ partner_id, pin })
         });
 
-        const data = await response.json();
+        const contentType = response.headers.get('content-type') || '';
+        let data = null;
+        if (contentType.includes('application/json')) {
+          data = await response.json();
+        }
 
-        if (response.ok && data.success) {
+        if (response.ok && data && data.success) {
           btn.innerText = 'Unlocked! Opening Workspace...';
           btn.style.background = '#10b981';
           window.location.href = data.redirect || '/';
-        } else {
+          return;
+        }
+
+        if (data && data.error) {
           btn.disabled = false;
           btn.innerText = 'Authenticate & Unlock Workspace';
           btn.style.background = '#6366f1';
-          alertMsg.innerText = data.error || 'Incorrect security code. Access denied.';
+          alertMsg.innerText = data.error;
           alertBox.style.display = 'block';
           document.getElementById('pin').focus();
+          return;
         }
+
+        if (response.redirected) {
+          window.location.href = response.url;
+          return;
+        }
+
+        // If unexpected response, fallback to native submission
+        form.submit();
       } catch (err) {
         // Fallback to traditional form submission if fetch encounters an edge error
         form.submit();
