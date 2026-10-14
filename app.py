@@ -173,7 +173,8 @@ def handle_login_request():
         if not session.get("logged_in_user"):
             session["logged_in_user"] = user
             session.permanent = True
-        return redirect(url_for("index"))
+        if request.path not in ("/", "/index"):
+            return redirect("/")
 
     if request.method == "GET":
         return render_template("login.html")
@@ -220,9 +221,9 @@ def handle_login_request():
         flash(f"Workspace unlocked. Welcome, {user_row['name'] if user_row else partner_id.capitalize()}.", "success")
 
         if is_json_client:
-            resp = jsonify({"success": True, "redirect": url_for("index")})
+            resp = jsonify({"success": True, "redirect": "/"})
         else:
-            resp = redirect(url_for("index"))
+            resp = redirect("/")
 
         resp.set_cookie(
             "partner_user",
@@ -242,8 +243,6 @@ def handle_login_request():
 
 
 @app.route("/login", methods=["GET", "POST"])
-@app.route("/api/index", methods=["GET", "POST"])
-@app.route("/api/index.py", methods=["GET", "POST"])
 def login():
     """Access portal login asking for the private password."""
     return handle_login_request()
@@ -329,7 +328,13 @@ def change_pin():
 # ============================================================================
 
 @app.route("/")
+@app.route("/index")
+@app.route("/api/index", methods=["GET", "POST"])
+@app.route("/api/index.py", methods=["GET", "POST"])
 def index():
+    if not (session.get("logged_in_user") or request.cookies.get("partner_user")):
+        return handle_login_request()
+
     conn = get_db_connection()
     cursor = conn.cursor()
     viewer_id = session.get("logged_in_user", "imran")
