@@ -1,8 +1,8 @@
 {
-  "name": "Imran & Mikiyas Venture Management",
-  "short_name": "VentureTracker",
+  "name": "IMAKO Solution - Imran & Mikiyas",
+  "short_name": "IMAKO",
   "description": "Private venture tracking, goals architecture, and financial ledger for Imran & Mikiyas.",
-  "start_url": "/",
+  "start_url": "/tasks",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0b0f17",
