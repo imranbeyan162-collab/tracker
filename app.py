@@ -81,10 +81,10 @@ def require_authentication_gate():
         return None
 
     allowed_exact = (
-        "/login", "/login/", "/favicon.ico", "/manifest.json", "/sw.js",
+        "/", "/index", "/login", "/login/", "/favicon.ico", "/manifest.json", "/sw.js",
         "/api/index", "/api/index/", "/api/index.py", "/debug"
     )
-    if request.path in allowed_exact or request.endpoint in ("login", "debug_endpoint"):
+    if request.path in allowed_exact or request.endpoint in ("login", "debug_endpoint", "index"):
         return None
 
     # Dual-redundancy: Check signed session cookie or persistent partner cookie
@@ -174,8 +174,7 @@ def handle_login_request():
         if not session.get("logged_in_user"):
             session["logged_in_user"] = user
             session.permanent = True
-        if request.path not in ("/", "/index"):
-            return redirect("/")
+        return redirect("/tasks")
 
     if request.method == "GET":
         return render_template("login.html")
@@ -222,9 +221,9 @@ def handle_login_request():
         flash(f"Workspace unlocked. Welcome, {user_row['name'] if user_row else partner_id.capitalize()}.", "success")
 
         if is_json_client:
-            resp = jsonify({"success": True, "redirect": "/"})
+            resp = jsonify({"success": True, "redirect": "/tasks"})
         else:
-            resp = redirect("/")
+            resp = redirect("/tasks")
 
         resp.set_cookie(
             "partner_user",
@@ -335,7 +334,7 @@ def change_pin():
 def index():
     if not (session.get("logged_in_user") or request.cookies.get("partner_user")):
         return handle_login_request()
-    return redirect("/tasks")
+    return tasks_board()
 
 
 # ============================================================================
