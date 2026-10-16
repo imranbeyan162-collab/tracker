@@ -622,6 +622,326 @@ tr.overdue-row td {
   margin-top: 0.15rem;
 }
 
+/* ==========================================================================
+   Cool Modern UI Components: Tasks, Goals, Finance & Partner Spaces
+   ========================================================================== */
+
+.nav-brand-logo-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: block;
+}
+
+/* Linear-style Task Quick Add Card */
+.task-quick-add {
+  background: #111827;
+  border: 1px solid #1f293d;
+  border-radius: var(--radius-md);
+  padding: 1.15rem 1.35rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.task-quick-add:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.task-add-input-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.task-main-input {
+  flex: 1;
+  background: #090d16;
+  border: 1px solid #222f47;
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  font-size: 0.98rem;
+  color: #ffffff;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.task-main-input:focus {
+  border-color: #6366f1;
+}
+
+.task-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.task-controls-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.control-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #151f32;
+  border: 1px solid #27354f;
+  border-radius: 6px;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+}
+
+.control-pill select, .control-pill input {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.control-pill select option {
+  background: #111827;
+  color: #ffffff;
+}
+
+/* Filter Chips Bar */
+.filter-chips-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: #111827;
+  border: 1px solid #1f293d;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.filter-chip:hover {
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+
+.filter-chip.active {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: #6366f1;
+  color: #a5b4fc;
+}
+
+.filter-chip .chip-count {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Modern Task Card */
+.cool-task-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.95rem 1.25rem;
+  background: #111827;
+  border: 1px solid #1e293b;
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.65rem;
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+
+.cool-task-card:hover {
+  border-color: #334155;
+  background: #141d2e;
+}
+
+.cool-task-card.is-done {
+  opacity: 0.55;
+  background: #0d121d;
+}
+
+.cool-task-card.is-done .cool-task-title {
+  text-decoration: line-through;
+  color: #64748b;
+}
+
+.cool-task-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex: 1;
+}
+
+.cool-task-checkbox {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 5px;
+  cursor: pointer;
+  accent-color: #6366f1;
+}
+
+.cool-task-title {
+  font-size: 0.94rem;
+  font-weight: 500;
+  color: #f8fafc;
+}
+
+.cool-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--text-subtle);
+}
+
+.badge-assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge-assignee.shared {
+  background: rgba(147, 51, 234, 0.16);
+  color: #c084fc;
+  border: 1px solid rgba(147, 51, 234, 0.35);
+}
+
+.badge-assignee.imran {
+  background: rgba(99, 102, 241, 0.16);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.badge-assignee.mikiyas {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.badge-priority {
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.badge-priority.High {
+  background: rgba(244, 63, 94, 0.18);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.35);
+}
+
+.badge-priority.Medium {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.badge-priority.Normal {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+/* Dedicated Partner Hero Banner */
+.partner-hero-banner {
+  background: linear-gradient(135deg, #111827 0%, #172033 100%);
+  border: 1px solid #1e293b;
+  border-radius: var(--radius-lg);
+  padding: 1.75rem 2rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.partner-avatar-badge {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #ffffff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.partner-avatar-badge.imran {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  border: 1px solid rgba(129, 140, 248, 0.5);
+}
+
+.partner-avatar-badge.mikiyas {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: 1px solid rgba(52, 211, 153, 0.5);
+}
+
+/* Goals Cards Grid */
+.goal-tile {
+  background: #111827;
+  border: 1px solid #1e293b;
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.35rem;
+  margin-bottom: 1rem;
+  transition: all 0.15s ease;
+}
+
+.goal-tile:hover {
+  border-color: #2e3e5c;
+  background: #131b2e;
+}
+
+.goal-tile.completed {
+  opacity: 0.65;
+  border-left: 3px solid #10b981;
+}
+
+.goal-tile-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.goal-tile-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
 /* Footer */
 .footer {
   margin-top: auto;
@@ -645,4 +965,16 @@ tr.overdue-row td {
   .form-row {
     grid-template-columns: 1fr;
   }
+  .task-add-input-row {
+    flex-direction: column;
+  }
+  .task-controls-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .task-controls-left {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
+

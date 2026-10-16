@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+
+{% block title %}{{ partner.name }}'s Space - Imran &amp; Mikiyas{% endblock %}
+
+{% block content %}
+<!-- Partner Hero Profile -->
+<div class="partner-hero-banner" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1.5rem; margin-bottom:2rem; background:linear-gradient(135deg, rgba(17, 24, 39, 0.95), rgba(15, 23, 42, 0.9)); border:1px solid #1f293d; padding:1.75rem; border-radius:var(--radius-lg); box-shadow:0 10px 25px -5px rgba(0,0,0,0.3);">
+  <div style="display:flex; align-items:center; gap:1.25rem;">
+    <div style="width:58px; height:58px; border-radius:50%; background:{% if partner.id == 'imran' %}linear-gradient(135deg, #6366f1, #4f46e5){% else %}linear-gradient(135deg, #10b981, #059669){% endif %}; display:flex; align-items:center; justify-content:center; font-size:1.75rem; font-weight:800; color:#fff; box-shadow:0 0 20px {% if partner.id == 'imran' %}rgba(99, 102, 241, 0.4){% else %}rgba(16, 185, 129, 0.4){% endif %};">
+      {{ partner.name[0] }}
+    </div>
+    <div>
+      <div style="display:flex; align-items:center; gap:0.6rem;">
+        <h1 style="font-size:1.6rem; font-weight:800; color:#fff; margin:0;">
+          {{ partner.name }}'s Personal Space
+        </h1>
+        <span class="badge" style="background:{% if partner.id == 'imran' %}rgba(99, 102, 241, 0.2){% else %}rgba(16, 185, 129, 0.2){% endif %}; color:{% if partner.id == 'imran' %}#a5b4fc{% else %}#6ee7b7{% endif %}; font-size:0.75rem; padding:0.25rem 0.6rem;">
+          {% if current_user and current_user.id == partner.id %}Active Account{% else %}Partner View{% endif %}
+        </span>
+      </div>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">
+        Dedicated accountability cockpit: Personal goals, common milestones, assigned tasks, and savings.
+      </p>
+    </div>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+    <!-- Streak -->
+    <div style="background:#0f172a; border:1px solid #1e293b; padding:0.6rem 1rem; border-radius:var(--radius-sm); font-size:0.84rem; text-align:center;">
+      <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Execution Streak</div>
+      <div style="font-weight:700; color:var(--accent-emerald); font-size:1.1rem; margin-top:0.15rem;">
+        🔥 {{ streak_count }} {{ 'Day' if streak_count == 1 else 'Days' }}
+      </div>
+    </div>
+
+    <!-- Task Completion Rate -->
+    <div style="background:#0f172a; border:1px solid #1e293b; padding:0.6rem 1rem; border-radius:var(--radius-sm); font-size:0.84rem; text-align:center;">
+      <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Assigned Tasks</div>
+      <div style="font-weight:700; color:#fff; font-size:1.1rem; margin-top:0.15rem;">
+        {{ tasks_done }} / {{ tasks_total }} ({{ task_rate }}%)
+      </div>
+    </div>
+
+    <!-- Savings Balance -->
+    <div style="background:#0f172a; border:1px solid #1e293b; padding:0.6rem 1rem; border-radius:var(--radius-sm); font-size:0.84rem; text-align:center;">
+      <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Reserve Fund</div>
+      <div style="font-weight:700; color:var(--accent-blue); font-size:1.1rem; margin-top:0.15rem;">
+        ${{ "%.2f"|format(fin_totals.savings) }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 1 & 2: Goals Grid (Personal Goals & Common Venture Goals) -->
+<div class="grid-2" style="margin-bottom: 2rem;">
+  
+  <!-- Personal Goals Card -->
+  <div class="card" style="border-top: 3px solid {% if partner.id == 'imran' %}#6366f1{% else %}#10b981{% endif %};">
+    <div class="card-header" style="margin-bottom: 1.25rem;">
+      <div>
+        <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:{% if partner.id == 'imran' %}#818cf8{% else %}#34d399{% endif %}; margin-bottom:0.2rem;">
+          Individual Track
+        </div>
+        <h3 style="font-size:1.15rem; font-weight:700; color:#fff;">
+          {% if partner.id == 'imran' %}🟣 Imran's Personal Goals{% else %}🟢 Mikiyas's Personal Goals{% endif %}
+        </h3>
+      </div>
+      <button class="btn btn-primary btn-sm" data-open-modal="addPersonalGoalModal" style="font-size:0.78rem;">
+        + Add Goal
+      </button>
+    </div>
+
+    {% if personal_goals %}
+      <div style="display:flex; flex-direction:column; gap:0.75rem;">
+        {% for goal in personal_goals %}
+          <div class="goal-tile {% if goal.is_completed %}completed{% endif %}">
+            <div class="goal-tile-header">
+              <span class="badge-assignee {{ partner.id }}">
+                {% if partner.id == 'imran' %}🟣 Imran{% else %}🟢 Mikiyas{% endif %}
+              </span>
+              <span class="badge" style="background:#1e293b; color:#94a3b8; font-size:0.72rem;">{{ goal.category }}</span>
+            </div>
+
+            <div class="goal-tile-title" style="margin-bottom:0.35rem; {% if goal.is_completed %}text-decoration:line-through; color:#64748b;{% endif %}">
+              {{ goal.title }}
+            </div>
+
+            {% if goal.description %}
+              <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.65rem; line-height:1.4;">
+                {{ goal.description }}
+              </p>
+            {% endif %}
+
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:var(--text-subtle); margin-top:0.65rem; padding-top:0.65rem; border-top:1px solid #1e293b;">
+              <span>Target: <strong>{{ goal.target_date or 'Ongoing' }}</strong></span>
+              
+              <div style="display:flex; align-items:center; gap:0.4rem;">
+                <form action="{{ url_for('toggle_goal_status', goal_id=goal.id) }}" method="POST" style="margin:0;">
+                  <button type="submit" class="btn btn-outline btn-sm" style="padding:0.22rem 0.55rem; font-size:0.72rem; border-color:{% if goal.is_completed %}#10b981{% else %}#6366f1{% endif %}; color:{% if goal.is_completed %}#34d399{% else %}#a5b4fc{% endif %};">
+                    {% if goal.is_completed %}✓ Done{% else %}Mark Done{% endif %}
+                  </button>
+                </form>
+                <form action="{{ url_for('delete_goal', goal_id=goal.id) }}" method="POST" style="margin:0;">
+                  <button type="submit" class="btn btn-outline btn-sm delete-confirm-btn" data-confirm-msg="Remove this goal?" style="padding:0.22rem 0.45rem; font-size:0.72rem; border-color:#2e1f26; color:#f43f5e;">
+                    &times;
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="padding:2.2rem 1rem; text-align:center; color:var(--text-muted); border:1px dashed #243147; border-radius:var(--radius-sm); font-size:0.85rem;">
+        No personal goals registered yet.<br>
+        <button class="btn btn-outline btn-sm" data-open-modal="addPersonalGoalModal" style="margin-top:0.75rem;">+ Set First Personal Goal</button>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Common Venture Goals Card -->
+  <div class="card" style="border-top: 3px solid #3b82f6;">
+    <div class="card-header" style="margin-bottom: 1.25rem;">
+      <div>
+        <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#60a5fa; margin-bottom:0.2rem;">
+          Synergy Milestones
+        </div>
+        <h3 style="font-size:1.15rem; font-weight:700; color:#fff;">
+          🤝 Our Common Venture Goals
+        </h3>
+      </div>
+      <button class="btn btn-primary btn-sm" data-open-modal="addCommonGoalModal" style="font-size:0.78rem;">
+        + Add Common Goal
+      </button>
+    </div>
+
+    {% if shared_goals %}
+      <div style="display:flex; flex-direction:column; gap:0.75rem;">
+        {% for goal in shared_goals %}
+          <div class="goal-tile {% if goal.is_completed %}completed{% endif %}">
+            <div class="goal-tile-header">
+              <span class="badge-assignee shared">🤝 Shared</span>
+              <span class="badge" style="background:#1e293b; color:#94a3b8; font-size:0.72rem;">{{ goal.category }}</span>
+            </div>
+
+            <div class="goal-tile-title" style="margin-bottom:0.35rem; {% if goal.is_completed %}text-decoration:line-through; color:#64748b;{% endif %}">
+              {{ goal.title }}
+            </div>
+
+            {% if goal.description %}
+              <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.65rem; line-height:1.4;">
+                {{ goal.description }}
+              </p>
+            {% endif %}
+
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:var(--text-subtle); margin-top:0.65rem; padding-top:0.65rem; border-top:1px solid #1e293b;">
+              <span>Target: <strong>{{ goal.target_date or 'No deadline' }}</strong></span>
+              
+              <div style="display:flex; align-items:center; gap:0.4rem;">
+                <form action="{{ url_for('toggle_goal_status', goal_id=goal.id) }}" method="POST" style="margin:0;">
+                  <button type="submit" class="btn btn-outline btn-sm" style="padding:0.22rem 0.55rem; font-size:0.72rem; border-color:{% if goal.is_completed %}#10b981{% else %}#3b82f6{% endif %}; color:{% if goal.is_completed %}#34d399{% else %}#60a5fa{% endif %};">
+                    {% if goal.is_completed %}✓ Done{% else %}Mark Done{% endif %}
+                  </button>
+                </form>
+                <form action="{{ url_for('delete_goal', goal_id=goal.id) }}" method="POST" style="margin:0;">
+                  <button type="submit" class="btn btn-outline btn-sm delete-confirm-btn" data-confirm-msg="Remove this goal?" style="padding:0.22rem 0.45rem; font-size:0.72rem; border-color:#2e1f26; color:#f43f5e;">
+                    &times;
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="padding:2.2rem 1rem; text-align:center; color:var(--text-muted); border:1px dashed #243147; border-radius:var(--radius-sm); font-size:0.85rem;">
+        No shared common goals recorded yet.<br>
+        <button class="btn btn-outline btn-sm" data-open-modal="addCommonGoalModal" style="margin-top:0.75rem;">+ Add Shared Objective</button>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- SECTION 3: Dedicated Assigned Tasks for this Partner -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header" style="margin-bottom: 1.25rem;">
+    <div>
+      <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent-indigo); margin-bottom:0.2rem;">
+        Accountability Checklist
+      </div>
+      <h2 style="font-size:1.25rem; font-weight:700; color:#fff;">
+        ✓ {{ partner.name }}'s Action Items &amp; Tasks
+      </h2>
+    </div>
+    <span class="badge" style="background:#1e293b; color:#94a3b8; font-size:0.82rem; padding:0.35rem 0.75rem;">
+      {{ partner_tasks|length }} Total Tasks
+    </span>
+  </div>
+
+  <!-- Inline Quick Add for Partner -->
+  <div class="task-quick-add" style="margin-bottom: 1.25rem;">
+    <form action="{{ url_for('add_task') }}" method="POST">
+      <input type="hidden" name="assigned_to" value="{{ partner.id }}">
+      <input type="hidden" name="redirect_to" value="/partner/{{ partner.id }}">
+      <div class="task-add-input-row">
+        <input type="text" name="title" class="task-main-input" placeholder="Add a task for {{ partner.name }} and press Enter..." required autocomplete="off">
+      </div>
+      <div class="task-controls-row">
+        <div class="task-controls-left">
+          <div class="control-pill">
+            <span>Due Date:</span>
+            <input type="date" name="due_date" value="{{ today_str }}">
+          </div>
+          <div class="control-pill">
+            <span>Priority:</span>
+            <select name="priority">
+              <option value="Normal">Normal</option>
+              <option value="Medium">⚡ Medium</option>
+              <option value="High">🔥 High</option>
+            </select>
+          </div>
+          <div class="control-pill" style="flex:1; min-width:160px;">
+            <span>Details:</span>
+            <input type="text" name="details" placeholder="Optional details..." style="width:100%;">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="padding:0.48rem 1.25rem; font-size:0.88rem;">
+          + Add Task
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Partner Tasks List -->
+  {% if partner_tasks %}
+    <div style="display:flex; flex-direction:column; gap:0.6rem;">
+      {% for task in partner_tasks %}
+        <div class="cool-task-card {% if task.is_done %}is-done{% endif %}">
+          <div class="cool-task-left">
+            <form action="{{ url_for('toggle_task_done', task_id=task.id) }}" method="POST" style="margin:0; display:flex; align-items:center;">
+              <input type="hidden" name="redirect_to" value="/partner/{{ partner.id }}">
+              <input type="checkbox" class="cool-task-checkbox" {% if task.is_done %}checked{% endif %} onchange="this.form.submit()" title="Toggle task status">
+            </form>
+
+            <div style="flex:1;">
+              <div class="cool-task-title">
+                {{ task.title }}
+              </div>
+              <div class="cool-task-meta">
+                {% if task.assigned_to == 'shared' or task.task_type == 'shared' %}
+                  <span class="badge-assignee shared">🤝 Shared</span>
+                {% elif task.assigned_to == 'imran' or task.user_id == 'imran' %}
+                  <span class="badge-assignee imran">🟣 Imran</span>
+                {% else %}
+                  <span class="badge-assignee mikiyas">🟢 Mikiyas</span>
+                {% endif %}
+
+                {% if task.priority and task.priority != 'Normal' %}
+                  <span class="badge-priority {{ task.priority }}">{{ task.priority }}</span>
+                {% endif %}
+
+                {% if task.due_date %}
+                  <span style="color:{% if not task.is_done and task.due_date < today_str %}var(--accent-rose){% else %}var(--text-muted){% endif %};">
+                    📅 {{ task.due_date }}
+                  </span>
+                {% endif %}
+
+                {% if task.details %}
+                  <span style="color:var(--text-subtle);">• {{ task.details }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="cool-task-actions">
+            <form action="{{ url_for('delete_task', task_id=task.id) }}" method="POST" style="margin:0;">
+              <input type="hidden" name="redirect_to" value="/partner/{{ partner.id }}">
+              <button type="submit" class="btn btn-outline btn-sm delete-confirm-btn" data-confirm-msg="Delete this task?" style="padding:0.25rem 0.5rem; font-size:0.75rem; border-color:#2e1f26; color:#f43f5e;">
+                &times;
+              </button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="padding:2.5rem 1rem; text-align:center; color:var(--text-muted); border:1px dashed #243147; border-radius:var(--radius-sm); font-size:0.88rem;">
+      No tasks assigned to {{ partner.name }} yet. Add one using the quick bar above!
+    </div>
+  {% endif %}
+</div>
+
+<!-- SECTION 4: Personal Savings & Capital Reserve -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header" style="margin-bottom: 1.25rem;">
+    <div>
+      <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent-blue); margin-bottom:0.2rem;">
+        Capital &amp; Reserve Fund
+      </div>
+      <h3 style="font-size:1.15rem; font-weight:700; color:#fff;">
+        💰 {{ partner.name }}'s Reserve Target: {{ partner.savings_goal_name or 'Personal Reserve' }}
+      </h3>
+    </div>
+    <div style="display:flex; gap:0.5rem;">
+      <button class="btn btn-outline btn-sm" data-open-modal="editSavingsGoalModal">Configure Target</button>
+      <a href="/finance" class="btn btn-primary btn-sm">Open Full Finance Hub →</a>
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; font-size:0.88rem; margin-bottom:0.5rem;">
+    <span>Current Reserve: <strong style="color:var(--accent-blue);">${{ "%.2f"|format(fin_totals.savings) }}</strong></span>
+    <span>Target Goal: <strong>${{ "%.2f"|format(partner.savings_goal_target) }}</strong></span>
+    <span>Progress: <strong style="color:var(--accent-emerald);">{{ savings_pct }}%</strong></span>
+  </div>
+  <div class="progress-container" style="height:10px; margin-bottom:1.5rem;">
+    <div class="progress-bar" style="width: {{ savings_pct }}%;"></div>
+  </div>
+
+  <div class="grid-3">
+    <div style="background:#0f172a; padding:1rem; border-radius:var(--radius-sm); border:1px solid #1e293b;">
+      <div style="font-size:0.75rem; color:var(--text-muted);">Personal Income Logged</div>
+      <div style="font-size:1.25rem; font-weight:700; color:var(--accent-emerald); margin-top:0.25rem;">
+        +${{ "%.2f"|format(fin_totals.income) }}
+      </div>
+    </div>
+    <div style="background:#0f172a; padding:1rem; border-radius:var(--radius-sm); border:1px solid #1e293b;">
+      <div style="font-size:0.75rem; color:var(--text-muted);">Personal Expenses Logged</div>
+      <div style="font-size:1.25rem; font-weight:700; color:var(--accent-rose); margin-top:0.25rem;">
+        -${{ "%.2f"|format(fin_totals.expense) }}
+      </div>
+    </div>
+    <div style="background:#0f172a; padding:1rem; border-radius:var(--radius-sm); border:1px solid #1e293b;">
+      <div style="font-size:0.75rem; color:var(--text-muted);">Capital Investments</div>
+      <div style="font-size:1.25rem; font-weight:700; color:var(--accent-indigo); margin-top:0.25rem;">
+        ${{ "%.2f"|format(fin_totals.investments) }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Personal Goal -->
+<div class="modal-overlay" id="addPersonalGoalModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">Add Personal Goal for {{ partner.name }}</h3>
+      <button class="modal-close" data-close-modal="addPersonalGoalModal">&times;</button>
+    </div>
+    <form action="{{ url_for('add_goal') }}" method="POST">
+      <input type="hidden" name="goal_type" value="{{ partner.id }}">
+      <input type="hidden" name="redirect_to" value="/partner/{{ partner.id }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Goal Title</label>
+          <input type="text" name="title" class="form-input" placeholder="e.g. Master financial modeling, Run 5km daily" required autofocus>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description / Specific Standard</label>
+          <textarea name="description" class="form-textarea" placeholder="What does completion look like?" rows="3"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select name="category" class="form-select">
+              <option value="Skill">Skill &amp; Mastery</option>
+              <option value="Fitness">Fitness &amp; Health</option>
+              <option value="Financial">Financial / Saving</option>
+              <option value="Mindset">Mindset &amp; Reading</option>
+              <option value="Career">Career &amp; Network</option>
+              <option value="General">General</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target Completion Date</label>
+            <input type="date" name="target_date" class="form-input">
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+          <button type="button" class="btn btn-secondary" data-close-modal="addPersonalGoalModal">Cancel</button>
+          <button type="submit" class="btn btn-primary">+ Register Personal Goal</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Add Common Goal -->
+<div class="modal-overlay" id="addCommonGoalModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">Add Common Venture Goal</h3>
+      <button class="modal-close" data-close-modal="addCommonGoalModal">&times;</button>
+    </div>
+    <form action="{{ url_for('add_goal') }}" method="POST">
+      <input type="hidden" name="goal_type" value="shared">
+      <input type="hidden" name="redirect_to" value="/partner/{{ partner.id }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Common Venture Goal Title</label>
+          <input type="text" name="title" class="form-input" placeholder="e.g. Reach $10,000 venture revenue, Launch App v2" required autofocus>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mutual Agreement &amp; Milestones</label>
+          <textarea name="description" class="form-textarea" placeholder="What will Imran and Mikiyas jointly accomplish?" rows="3"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select name="category" class="form-select">
+              <option value="Revenue">Revenue &amp; Sales</option>
+              <option value="Product">Product &amp; Code</option>
+              <option value="Marketing">Marketing &amp; Outreach</option>
+              <option value="Operations">Operations &amp; Setup</option>
+              <option value="General">General Milestone</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target Date</label>
+            <input type="date" name="target_date" class="form-input">
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+          <button type="button" class="btn btn-secondary" data-close-modal="addCommonGoalModal">Cancel</button>
+          <button type="submit" class="btn btn-primary">+ Save Common Goal</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Configure Savings Goal -->
+<div class="modal-overlay" id="editSavingsGoalModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">Configure {{ partner.name }}'s Reserve Target</h3>
+      <button class="modal-close" data-close-modal="editSavingsGoalModal">&times;</button>
+    </div>
+    <form action="{{ url_for('update_savings_goal') }}" method="POST">
+      <input type="hidden" name="partner_id" value="{{ partner.id }}">
+      <input type="hidden" name="redirect_to" value="/partner/{{ partner.id }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Reserve Target Name</label>
+          <input type="text" name="goal_name" class="form-input" value="{{ partner.savings_goal_name or 'Personal Capital Reserve' }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Amount ($)</label>
+          <input type="number" step="0.01" min="0" name="target_amount" class="form-input" value="{{ partner.savings_goal_target or 0 }}" required>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+          <button type="button" class="btn btn-secondary" data-close-modal="editSavingsGoalModal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Target</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

@@ -186,7 +186,9 @@ def init_db(seed=False):
         ("proof_text", "TEXT"),
         ("ai_verified", "INTEGER NOT NULL DEFAULT 0"),
         ("ai_status", "TEXT NOT NULL DEFAULT 'Unverified'"),
-        ("ai_feedback", "TEXT")
+        ("ai_feedback", "TEXT"),
+        ("assigned_to", "TEXT DEFAULT 'imran'"),
+        ("priority", "TEXT DEFAULT 'Normal'")
     ]
     for col, col_type in task_cols:
         try:
@@ -203,7 +205,8 @@ def init_db(seed=False):
         ("ai_verified", "INTEGER NOT NULL DEFAULT 0"),
         ("ai_status", "TEXT NOT NULL DEFAULT 'Unverified'"),
         ("ai_feedback", "TEXT"),
-        ("reminder_enabled", "INTEGER NOT NULL DEFAULT 1")
+        ("reminder_enabled", "INTEGER NOT NULL DEFAULT 1"),
+        ("progress_pct", "INTEGER NOT NULL DEFAULT 0")
     ]
     for col, col_type in goal_cols:
         try:
@@ -408,7 +411,64 @@ def get_private_tasks(conn, current_user_id, week_id):
     cursor = conn.cursor()
     cursor.execute("""
     SELECT * FROM tasks 
-    WHERE week_identifier = ? AND (task_type = 'shared' OR user_id = ?)
-    ORDER BY due_date ASC, id ASC
-    """, (week_id, current_user_id))
+    WHERE (task_type = 'shared' OR user_id = ? OR assigned_to = ? OR assigned_to = 'shared')
+    ORDER BY is_done ASC, due_date ASC, id DESC
+    """, (current_user_id, current_user_id))
     return cursor.fetchall()
+
+
+def get_all_categorized_goals(conn):
+    """
+    Returns goals organized into:
+    1. shared (Common Goals for both partners)
+    2. imran (Imran's Personal Goals)
+    3. mikiyas (Mikiyas's Personal Goals)
+    """
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM goals WHERE goal_type = 'shared' ORDER BY is_completed ASC, id DESC")
+    shared = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM goals WHERE goal_type = 'imran' ORDER BY is_completed ASC, id DESC")
+    imran = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM goals WHERE goal_type = 'mikiyas' ORDER BY is_completed ASC, id DESC")
+    mikiyas = cursor.fetchall()
+
+    return {
+        'shared': shared,
+        'imran': imran,
+        'mikiyas': mikiyas
+    }
+
+
+def get_workspace_tasks(conn, filter_assignee=None, filter_status=None):
+    """
+    Returns tasks for the cool unified tasks board.
+    Supports filtering by assignee ('all', 'shared', 'imran', 'mikiyas')
+    and status ('all', 'active', 'completed', 'today').
+    """
+    cursor = conn.cursor()
+    today_str = date.today().strftime("%Y-%m-%d")
+
+    query = "SELECT * FROM tasks WHERE 1=1"
+    params = []
+
+    if filter_assignee and filter_assignee != 'all':
+        if filter_assignee == 'shared':
+            query += " AND (task_type = 'shared' OR assigned_to = 'shared')"
+        else:
+            query += " AND (assigned_to = ? OR (task_type = 'personal' AND user_id = ?))"
+            params.extend([filter_assignee, filter_assignee])
+
+    if filter_status == 'today':
+        query += " AND due_date = ?"
+        params.append(today_str)
+    elif filter_status == 'active':
+        query += " AND is_done = 0"
+    elif filter_status == 'completed':
+        query += " AND is_done = 1"
+
+    query += " ORDER BY is_done ASC, due_date ASC, id DESC"
+    cursor.execute(query, params)
+    return cursor.fetchall()
+

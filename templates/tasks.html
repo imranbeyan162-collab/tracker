@@ -1,223 +1,170 @@
 {% extends "base.html" %}
 
-{% block title %}Milestones &amp; Execution - Imran &amp; Mikiyas{% endblock %}
+{% block title %}Tasks - Imran &amp; Mikiyas{% endblock %}
 
 {% block content %}
+<!-- Top Header & Metrics -->
 <div style="margin-bottom: 1.5rem; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
   <div>
-    <h1 style="font-size:1.6rem; font-weight:700;">
-      Execution &amp; Milestones ({{ partner.name }})
-    </h1>
-    <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.2rem;">
-      Private personal milestones and shared venture obligations for Week {{ selected_week }}.
+    <h1 style="font-size:1.75rem; font-weight:700;">Tasks Workspace</h1>
+    <p style="font-size:0.88rem; color:var(--text-muted); margin-top:0.25rem;">
+      Shared venture execution and personal accountability for Imran &amp; Mikiyas.
     </p>
   </div>
 
   <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-    <!-- Archive Selector -->
-    <form method="GET" action="{{ url_for('tasks_view', partner_id=viewer_id) }}" style="display:inline-flex; align-items:center;">
-      <select name="week" class="form-select" onchange="this.form.submit()" style="padding:0.35rem 0.65rem; font-size:0.8rem;">
-        {% for w in available_weeks %}
-          <option value="{{ w }}" {% if w == selected_week %}selected{% endif %}>
-            Week {{ w }}{% if w == current_week_id %} (Current){% endif %}
-          </option>
-        {% endfor %}
-      </select>
-    </form>
+    <!-- Progress Indicator -->
+    <div style="background:#111827; border:1px solid #1f293d; padding:0.45rem 0.95rem; border-radius:var(--radius-sm); font-size:0.84rem; display:flex; align-items:center; gap:0.65rem;">
+      <span style="color:var(--text-muted);">Completed:</span>
+      <strong style="color:var(--accent-emerald);">{{ stats.done_count }} / {{ stats.total_count }} ({{ stats.rate }}%)</strong>
+    </div>
 
-    <div style="background:#111827; border:1px solid #334155; padding:0.4rem 0.85rem; border-radius:var(--radius-sm); font-size:0.8rem; display:flex; align-items:center; gap:0.5rem;">
+    <!-- Streak Badge -->
+    <div style="background:#111827; border:1px solid #1f293d; padding:0.45rem 0.95rem; border-radius:var(--radius-sm); font-size:0.84rem; display:flex; align-items:center; gap:0.5rem;">
       <div style="width:7px; height:7px; border-radius:50%; background:var(--accent-emerald);"></div>
       <span>Streak: <strong>{{ streak_count }} {{ 'Day' if streak_count == 1 else 'Days' }}</strong></span>
     </div>
-
-    <form action="{{ url_for('archive_week') }}" method="POST" style="display:inline;">
-      <input type="hidden" name="week_id" value="{{ selected_week }}">
-      <button type="submit" class="btn btn-secondary btn-sm delete-confirm-btn" data-confirm-msg="Archive this week and advance? Unfinished overdue tasks will trigger accountability penalties.">
-        Archive Week
-      </button>
-    </form>
   </div>
 </div>
 
-<!-- Super Easy 1-Click Quick Add Bar -->
-<div class="card" style="margin-bottom: 1.5rem; background: #111827; border-color: #2b3952; padding: 1rem 1.25rem;">
-  <form action="{{ url_for('quick_add_task') }}" method="POST" style="display:flex; flex-wrap:wrap; gap:0.75rem; align-items:center;">
-    <input type="hidden" name="week_id" value="{{ selected_week }}">
-    <div style="flex:2; min-width:240px;">
-      <input type="text" name="title" class="form-input" placeholder="Type new milestone name (e.g., Deliver website to client)..." required autofocus>
+<!-- Linear-Style Task Quick Add Bar -->
+<div class="task-quick-add">
+  <form action="{{ url_for('add_task') }}" method="POST">
+    <div class="task-add-input-row">
+      <input type="text" name="title" class="task-main-input" placeholder="Type a new task and press Enter (e.g., Deliver website to client, Call 5 leads)..." required autofocus autocomplete="off">
     </div>
-    <div style="flex:1; min-width:140px;">
-      <select name="task_type" class="form-select">
-        <option value="personal">My Personal Task (Private)</option>
-        <option value="shared">Shared Task (Both of Us)</option>
-      </select>
+    <div class="task-controls-row">
+      <div class="task-controls-left">
+        <div class="control-pill">
+          <span>Assignee:</span>
+          <select name="assigned_to">
+            <option value="shared">🤝 Shared (Both of Us)</option>
+            <option value="imran" {% if current_user and current_user.id == 'imran' %}selected{% endif %}>🟣 Imran</option>
+            <option value="mikiyas" {% if current_user and current_user.id == 'mikiyas' %}selected{% endif %}>🟢 Mikiyas</option>
+          </select>
+        </div>
+
+        <div class="control-pill">
+          <span>Due:</span>
+          <input type="date" name="due_date" value="{{ today_str }}">
+        </div>
+
+        <div class="control-pill">
+          <span>Priority:</span>
+          <select name="priority">
+            <option value="Normal">Normal</option>
+            <option value="Medium">⚡ Medium</option>
+            <option value="High">🔥 High</option>
+          </select>
+        </div>
+
+        <div class="control-pill" style="flex:1; min-width:160px;">
+          <span>Note:</span>
+          <input type="text" name="details" placeholder="Optional details..." style="width:100%;">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="padding:0.48rem 1.25rem; font-size:0.88rem;">
+        + Add Task
+      </button>
     </div>
-    <div style="width:130px;">
-      <input type="date" name="due_date" class="form-input" value="{{ today_str }}" title="Due Date">
-    </div>
-    <div style="width:110px;">
-      <input type="time" name="target_time" class="form-input" title="Target Time">
-    </div>
-    <button type="submit" class="btn btn-primary" style="white-space:nowrap; padding:0.55rem 1.25rem;">
-      + Add Milestone
-    </button>
   </form>
 </div>
 
-<!-- Weekly Execution Progress -->
-<div class="card" style="margin-bottom: 1.5rem;">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
-    <div>
-      <strong style="color:#ffffff;">Execution Velocity (Week {{ selected_week }}):</strong>
-      <span style="color:var(--text-muted); margin-left:0.5rem; font-size:0.85rem;">{{ done_tasks_count }} of {{ total_tasks_count }} milestones achieved</span>
-    </div>
-    <div style="font-size:1.15rem; font-weight:700; color:{% if completion_rate >= 80 %}var(--accent-emerald){% elif completion_rate >= 50 %}var(--accent-blue){% else %}var(--accent-rose){% endif %};">
-      {{ completion_rate }}%
-    </div>
-  </div>
-  <div class="progress-container">
-    <div class="progress-bar" style="width: {{ completion_rate }}%;"></div>
-  </div>
+<!-- Filter Chips -->
+<div class="filter-chips-bar">
+  <a href="{{ url_for('tasks_board', tab='all') }}" class="filter-chip {% if active_tab == 'all' %}active{% endif %}">
+    All Tasks <span class="chip-count">{{ counts.all }}</span>
+  </a>
+  <a href="{{ url_for('tasks_board', tab='today') }}" class="filter-chip {% if active_tab == 'today' %}active{% endif %}">
+    📅 Due Today <span class="chip-count">{{ counts.today }}</span>
+  </a>
+  <a href="{{ url_for('tasks_board', tab='shared') }}" class="filter-chip {% if active_tab == 'shared' %}active{% endif %}">
+    🤝 Shared <span class="chip-count">{{ counts.shared }}</span>
+  </a>
+  <a href="{{ url_for('tasks_board', tab='imran') }}" class="filter-chip {% if active_tab == 'imran' %}active{% endif %}">
+    🟣 Imran's Tasks <span class="chip-count">{{ counts.imran }}</span>
+  </a>
+  <a href="{{ url_for('tasks_board', tab='mikiyas') }}" class="filter-chip {% if active_tab == 'mikiyas' %}active{% endif %}">
+    🟢 Mikiyas's Tasks <span class="chip-count">{{ counts.mikiyas }}</span>
+  </a>
+  <a href="{{ url_for('tasks_board', tab='completed') }}" class="filter-chip {% if active_tab == 'completed' %}active{% endif %}">
+    ✓ Completed <span class="chip-count">{{ counts.completed }}</span>
+  </a>
 </div>
 
-<!-- Daily Check-In for Today -->
-{% if today_tasks %}
-<div class="card" style="margin-bottom: 1.5rem; border-left:3px solid var(--accent-indigo);">
-  <div class="card-header">
-    <div class="card-title">Check-In Queue: Today ({{ today_str }})</div>
-    <span class="badge" style="background:#1e293b; color:#cbd5e1;">{{ today_tasks|length }} Due</span>
-  </div>
+<!-- Task List -->
+<div style="margin-top: 1rem;">
+  {% if tasks %}
+    {% for task in tasks %}
+      <div class="cool-task-card {% if task.is_done %}is-done{% endif %}">
+        <div class="cool-task-left">
+          <form action="{{ url_for('toggle_task_done', task_id=task.id) }}" method="POST" style="margin:0; display:flex; align-items:center;">
+            <input type="checkbox" class="cool-task-checkbox" {% if task.is_done %}checked{% endif %} onchange="this.form.submit()" title="Click to mark done / undone">
+          </form>
 
-  {% for task in today_tasks %}
-    <div class="task-item {% if task.is_done %}is-done{% endif %}">
-      <form action="{{ url_for('toggle_task_done', task_id=task.id) }}" method="POST" style="margin-top:2px;">
-        <input type="hidden" name="week_id" value="{{ selected_week }}">
-        <input type="checkbox" class="task-checkbox" {% if task.is_done %}checked{% endif %} onchange="this.form.submit()">
-      </form>
-      <div style="flex:1; margin-left:0.85rem;">
-        <div class="task-title">
-          {{ task.title }}
-          {% if task.task_type == 'shared' %}
-            <span class="badge" style="background:rgba(99,102,241,0.15); color:#818cf8; margin-left:0.4rem;">Shared</span>
-          {% else %}
-            <span class="badge" style="background:rgba(52,211,153,0.15); color:#34d399; margin-left:0.4rem;">Personal</span>
-          {% endif %}
-        </div>
-        <div style="font-size:0.75rem; color:var(--text-subtle); margin-top:0.25rem;">
-          {% if task.target_time %}Target Time: {{ task.target_time }} &bull;{% endif %}
-          Status: {% if task.is_done %}Completed{% else %}Pending Verification{% endif %}
-        </div>
-      </div>
-      <div style="display:flex; gap:0.4rem; align-items:center;">
-        <button class="btn btn-outline btn-sm" onclick="openTaskProofModal({{ task.id }}, '{{ task.title|escape }}')">
-          AI Proof Audit
-        </button>
-      </div>
-    </div>
-  {% endfor %}
-</div>
-{% endif %}
-
-<!-- Milestones List -->
-<div class="card">
-  <div class="card-header">
-    <div class="card-title">All Milestones for Week {{ selected_week }}</div>
-  </div>
-
-  {% if all_tasks %}
-    {% for task in all_tasks %}
-      {% set is_overdue = (not task.is_done and task.due_date < today_str) %}
-      <div class="task-item {% if task.is_done %}is-done{% endif %}" style="{% if is_overdue %}border-left: 3px solid var(--accent-rose);{% endif %}">
-        <form action="{{ url_for('toggle_task_done', task_id=task.id) }}" method="POST" style="margin-top:2px;">
-          <input type="hidden" name="week_id" value="{{ selected_week }}">
-          <input type="checkbox" class="task-checkbox" {% if task.is_done %}checked{% endif %} onchange="this.form.submit()">
-        </form>
-        <div style="flex:1; margin-left:0.85rem;">
-          <div class="task-title">
-            {{ task.title }}
-            {% if task.task_type == 'shared' %}
-              <span class="badge" style="background:rgba(99,102,241,0.15); color:#818cf8; margin-left:0.4rem;">Shared</span>
-            {% else %}
-              <span class="badge" style="background:rgba(52,211,153,0.15); color:#34d399; margin-left:0.4rem;">Personal</span>
-            {% endif %}
-            {% if task.ai_status == 'Approved' %}
-              <span class="badge badge-paid" style="margin-left:0.4rem;">AI Verified ✓</span>
-            {% elif task.ai_status == 'Rejected' %}
-              <span class="badge badge-unpaid" style="margin-left:0.4rem;">AI Rejected ✗</span>
-            {% endif %}
-          </div>
-          {% if task.ai_feedback %}
-            <div style="font-size:0.78rem; color:{% if task.ai_status == 'Approved' %}var(--accent-emerald){% else %}var(--accent-rose){% endif %}; margin-top:0.25rem;">
-              {{ task.ai_feedback }}
+          <div style="flex:1;">
+            <div class="cool-task-title">
+              {{ task.title }}
             </div>
-          {% endif %}
-          <div style="font-size:0.75rem; color:var(--text-subtle); margin-top:0.3rem;">
-            <span>Due: {{ task.due_date }} {% if task.target_time %}({{ task.target_time }}){% endif %}</span>
-            {% if is_overdue %}
-              <span class="badge badge-overdue" style="margin-left:0.5rem;">Overdue</span>
-            {% endif %}
+            
+            <div class="cool-task-meta">
+              <!-- Assignee Badge -->
+              {% if task.assigned_to == 'shared' or task.task_type == 'shared' %}
+                <span class="badge-assignee shared">🤝 Shared</span>
+              {% elif task.assigned_to == 'imran' or (task.user_id == 'imran' and not task.assigned_to) %}
+                <span class="badge-assignee imran">🟣 Imran</span>
+              {% elif task.assigned_to == 'mikiyas' or (task.user_id == 'mikiyas' and not task.assigned_to) %}
+                <span class="badge-assignee mikiyas">🟢 Mikiyas</span>
+              {% endif %}
+
+              <!-- Priority Badge -->
+              {% if task.priority and task.priority != 'Normal' %}
+                <span class="badge-priority {{ task.priority }}">{{ task.priority }}</span>
+              {% endif %}
+
+              <!-- Due Date Indicator -->
+              {% if task.due_date %}
+                {% if not task.is_done and task.due_date < today_str %}
+                  <span style="color:var(--accent-rose); font-weight:600;">⚠ Overdue ({{ task.due_date }})</span>
+                {% elif task.due_date == today_str %}
+                  <span style="color:var(--accent-amber); font-weight:600;">Due Today</span>
+                {% else %}
+                  <span>Due {{ task.due_date }}</span>
+                {% endif %}
+              {% endif %}
+
+              {% if task.details %}
+                <span style="color:var(--text-subtle);">• {{ task.details }}</span>
+              {% endif %}
+            </div>
           </div>
         </div>
-        <div style="display:flex; gap:0.4rem; align-items:center;">
-          <button type="button" class="btn btn-outline btn-sm" onclick="openTaskProofModal({{ task.id }}, '{{ task.title|escape }}')">
-            Submit Evidence
-          </button>
-          <form action="{{ url_for('delete_task', task_id=task.id) }}" method="POST" style="display:inline;">
-            <input type="hidden" name="week_id" value="{{ selected_week }}">
-            <button type="submit" class="btn btn-danger btn-sm delete-confirm-btn" style="padding:0.25rem 0.5rem; font-size:0.72rem;">Remove</button>
+
+        <!-- Task Actions -->
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <form action="{{ url_for('delete_task', task_id=task.id) }}" method="POST" style="margin:0;">
+            <button type="submit" class="btn btn-outline btn-sm delete-confirm-btn" data-confirm-msg="Delete this task?" style="padding:0.25rem 0.6rem; font-size:0.75rem; border-color:#2a374f; color:#94a3b8;">
+              Delete
+            </button>
           </form>
         </div>
       </div>
     {% endfor %}
   {% else %}
-    <div style="padding:2.5rem 0; text-align:center; color:var(--text-subtle); font-size:0.85rem;">
-      No milestones logged for this week yet. Use the Quick Add bar above to schedule a task instantly.
+    <div style="padding:3.5rem 1.5rem; text-align:center; border:1px dashed #26334a; border-radius:var(--radius-md); background:#0c111a; margin-top:1.5rem;">
+      <div style="font-size:2rem; margin-bottom:0.75rem;">📋</div>
+      <h3 style="font-size:1.1rem; color:#ffffff; margin-bottom:0.35rem;">No tasks in this view</h3>
+      <p style="font-size:0.85rem; color:var(--text-muted); max-width:400px; margin:0 auto 1.25rem auto;">
+        {% if active_tab == 'completed' %}
+          No tasks completed yet. Check off an active task above to record your wins!
+        {% elif active_tab == 'today' %}
+          Nothing due today! Enjoy your focus or type a task above to schedule one.
+        {% else %}
+          Everything is clear. Type a task name in the quick box above and click Add Task.
+        {% endif %}
+      </p>
     </div>
   {% endif %}
 </div>
-
-<!-- AI Proof Submission Modal -->
-<div class="modal-overlay" id="taskProofModal">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h3 class="modal-title">AI Milestone Verification</h3>
-      <button class="modal-close" data-close-modal="taskProofModal">&times;</button>
-    </div>
-    <form id="taskProofForm" action="" method="POST" enctype="multipart/form-data">
-      <input type="hidden" name="week_id" value="{{ selected_week }}">
-      <div class="modal-body">
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;" id="taskProofTitleDisplay">
-          Upload photo or screenshot proof. The AI will inspect it against your milestone criteria to approve completion.
-        </p>
-
-        <div class="form-group">
-          <label class="form-label">Screenshot / Photo Proof *</label>
-          <input type="file" name="proof_image" class="form-input" accept="image/*" required>
-          <div class="form-hint">Attach payment receipt, deployed website link screenshot, code commit, or completed task photo.</div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Proof Explanation *</label>
-          <textarea name="proof_text" class="form-textarea" rows="2" placeholder="Explain how this evidence proves the milestone was fulfilled..." required></textarea>
-        </div>
-
-        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
-          <button type="button" class="btn btn-secondary" data-close-modal="taskProofModal">Cancel</button>
-          <button type="submit" class="btn btn-primary">Run AI Verification Audit</button>
-        </div>
-      </div>
-    </form>
-  </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-function openTaskProofModal(taskId, title) {
-  const form = document.getElementById('taskProofForm');
-  form.action = `/tasks/verify-proof/${taskId}`;
-  document.getElementById('taskProofTitleDisplay').innerText = `Auditing evidence for milestone: "${title}"`;
-  openModal('taskProofModal');
-}
-</script>
 {% endblock %}

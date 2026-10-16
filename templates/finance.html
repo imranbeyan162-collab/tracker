@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}Finance &amp; Savings - Imran &amp; Mikiyas{% endblock %}
+
+{% block content %}
+<!-- Header & Quick Actions -->
+<div style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+  <div>
+    <h1 style="font-size:1.75rem; font-weight:700;">Venture Finance &amp; Capital Reserve</h1>
+    <p style="font-size:0.88rem; color:var(--text-muted); margin-top:0.25rem;">
+      Unified capital tracking, profit margins, operational cash flow, and savings reserves.
+    </p>
+  </div>
+  <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+    <a href="{{ url_for('export_csv') }}" class="btn btn-outline btn-sm">
+      📥 Export CSV
+    </a>
+    <button class="btn btn-primary" data-open-modal="addTransactionModal">
+      + New Transaction
+    </button>
+  </div>
+</div>
+
+<!-- Venture Financial Health Cards -->
+<div class="grid-4" style="margin-bottom: 1.75rem;">
+  <div class="card" style="border-top: 3px solid #10b981;">
+    <div class="stat-label">Total Revenue</div>
+    <div class="stat-value green" style="font-size:1.6rem;">
+      +${{ "%.2f"|format(fin_totals.income) }}
+    </div>
+    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">
+      Imran: ${{ "%.2f"|format(a_fin.income) }} &bull; Mikiyas: ${{ "%.2f"|format(b_fin.income) }}
+    </div>
+  </div>
+
+  <div class="card" style="border-top: 3px solid #f43f5e;">
+    <div class="stat-label">Operating Expenses</div>
+    <div class="stat-value red" style="font-size:1.6rem;">
+      -${{ "%.2f"|format(fin_totals.expense) }}
+    </div>
+    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">
+      Imran: ${{ "%.2f"|format(a_fin.expense) }} &bull; Mikiyas: ${{ "%.2f"|format(b_fin.expense) }}
+    </div>
+  </div>
+
+  <div class="card" style="border-top: 3px solid #3b82f6;">
+    <div class="stat-label">Capital Reserves (Saved)</div>
+    <div class="stat-value blue" style="font-size:1.6rem;">
+      ${{ "%.2f"|format(fin_totals.savings) }}
+    </div>
+    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">
+      Liquid venture growth buffer
+    </div>
+  </div>
+
+  <div class="card" style="border-top: 3px solid #8b5cf6;">
+    <div class="stat-label">Net Operating Margin</div>
+    <div class="stat-value {% if (fin_totals.income - fin_totals.expense) >= 0 %}green{% else %}red{% endif %}" style="font-size:1.6rem;">
+      ${{ "%.2f"|format(fin_totals.income - fin_totals.expense) }}
+    </div>
+    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">
+      Profit retained in venture
+    </div>
+  </div>
+</div>
+
+<!-- Combined Capital Reserve & Savings Target Tracker -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header" style="margin-bottom:1rem;">
+    <div>
+      <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent-blue); margin-bottom:0.2rem;">
+        Venture Growth Target
+      </div>
+      <h2 style="font-size:1.2rem; font-weight:700; color:#fff;">
+        🛡 Capital Reserve &amp; Savings Target
+      </h2>
+    </div>
+    <button class="btn btn-outline btn-sm" data-open-modal="editSavingsGoalModal">Configure Target</button>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; font-size:0.88rem; margin-bottom:0.5rem;">
+    <span>Current Total Reserve: <strong style="color:var(--accent-blue);">${{ "%.2f"|format(fin_totals.savings) }}</strong></span>
+    <span>Target Goal: <strong>${{ "%.2f"|format(savings_target) }}</strong></span>
+    <span>Progress: <strong style="color:var(--accent-emerald);">{{ savings_pct }}%</strong></span>
+  </div>
+  <div class="progress-container" style="height:12px; margin-bottom:1rem;">
+    <div class="progress-bar" style="width: {{ savings_pct }}%;"></div>
+  </div>
+
+  <div style="display:flex; gap:1.5rem; flex-wrap:wrap; font-size:0.84rem; color:var(--text-muted); padding-top:0.5rem; border-top:1px solid #1f293d;">
+    <div>🟣 Imran Reserve: <strong style="color:#fff;">${{ "%.2f"|format(a_fin.savings) }}</strong></div>
+    <div>🟢 Mikiyas Reserve: <strong style="color:#fff;">${{ "%.2f"|format(b_fin.savings) }}</strong></div>
+    <div>📦 Capital Assets/Investments: <strong style="color:#fff;">${{ "%.2f"|format(fin_totals.investments) }}</strong></div>
+  </div>
+</div>
+
+<!-- Ledger Section: Filter Tabs & Transactions Table -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header" style="margin-bottom: 1.25rem; flex-wrap:wrap; gap:1rem;">
+    <div>
+      <h3 style="font-size:1.15rem; font-weight:700; color:#fff;">Transactions Stream</h3>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.15rem;">
+        Real-time ledger of revenues, costs, deposits, and investments.
+      </p>
+    </div>
+
+    <!-- Filter partner pills -->
+    <div class="filter-chips-bar" style="margin:0; padding:0;">
+      <a href="{{ url_for('finance_view', partner='all') }}" class="filter-chip {% if active_partner_filter == 'all' %}active{% endif %}">
+        All Entries
+      </a>
+      <a href="{{ url_for('finance_view', partner='imran') }}" class="filter-chip {% if active_partner_filter == 'imran' %}active{% endif %}">
+        🟣 Imran
+      </a>
+      <a href="{{ url_for('finance_view', partner='mikiyas') }}" class="filter-chip {% if active_partner_filter == 'mikiyas' %}active{% endif %}">
+        🟢 Mikiyas
+      </a>
+    </div>
+  </div>
+
+  {% if transactions %}
+    <div class="table-container">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Partner</th>
+            <th>Type</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th style="text-align:right;">Amount</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for txn in transactions %}
+            <tr>
+              <td style="white-space:nowrap; font-size:0.85rem; color:var(--text-muted);">{{ txn.date }}</td>
+              <td>
+                {% if txn.user_id == 'imran' %}
+                  <span class="badge-assignee imran">🟣 Imran</span>
+                {% else %}
+                  <span class="badge-assignee mikiyas">🟢 Mikiyas</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge badge-{{ txn.type|lower }}">{{ txn.type }}</span>
+              </td>
+              <td style="font-weight:500;">{{ txn.category }}</td>
+              <td style="color:var(--text-muted); font-size:0.85rem;">{{ txn.note or '—' }}</td>
+              <td style="text-align:right; font-weight:700; white-space:nowrap; color:{% if txn.type == 'Income' %}var(--accent-emerald){% elif txn.type == 'Expense' %}var(--accent-rose){% elif txn.type == 'Savings' %}var(--accent-blue){% else %}var(--accent-indigo){% endif %};">
+                {% if txn.type == 'Income' %}+{% elif txn.type == 'Expense' %}-{% endif %}${{ "%.2f"|format(txn.amount) }}
+              </td>
+              <td style="text-align:right; white-space:nowrap;">
+                <form action="{{ url_for('delete_transaction', txn_id=txn.id) }}" method="POST" style="margin:0; display:inline;">
+                  <input type="hidden" name="redirect_to" value="/finance">
+                  <button type="submit" class="btn btn-outline btn-sm delete-confirm-btn" data-confirm-msg="Delete this transaction entry?" style="padding:0.2rem 0.5rem; font-size:0.75rem; border-color:#2e1f26; color:#f43f5e;">
+                    &times;
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="padding:2.5rem 1rem; text-align:center; color:var(--text-muted); border:1px dashed #243147; border-radius:var(--radius-sm); font-size:0.88rem;">
+      No transactions recorded yet.<br>
+      <button class="btn btn-primary btn-sm" data-open-modal="addTransactionModal" style="margin-top:0.75rem;">+ Log First Transaction</button>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Recurring Commitments / Bills -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header" style="margin-bottom:1rem;">
+    <div>
+      <h3 style="font-size:1.15rem; font-weight:700; color:#fff;">Recurring Obligations &amp; Bills</h3>
+      <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.15rem;">
+        Essential domain, hosting, subscription, and service commitments.
+      </p>
+    </div>
+    <button class="btn btn-outline btn-sm" data-open-modal="addBillModal">+ Record Bill</button>
+  </div>
+
+  {% if bills %}
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;">
+      {% for bill in bills %}
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:var(--radius-sm); padding:1rem; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-weight:600; color:#fff; font-size:0.95rem;">{{ bill.name }}</div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.2rem;">
+              Due: {{ bill.due_date }} &bull; {{ bill.recurring_interval }}
+              {% if bill.user_id == 'imran' %}<span style="color:#a5b4fc;">(Imran)</span>{% else %}<span style="color:#6ee7b7;">(Mikiyas)</span>{% endif %}
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:700; color:var(--accent-rose); font-size:1.05rem;">
+              ${{ "%.2f"|format(bill.amount) }}
+            </div>
+            <div style="margin-top:0.35rem; display:flex; gap:0.35rem; justify-content:flex-end;">
+              <form action="{{ url_for('toggle_bill_paid', bill_id=bill.id) }}" method="POST" style="margin:0;">
+                <input type="hidden" name="redirect_to" value="/finance">
+                <button type="submit" class="btn btn-outline btn-sm" style="padding:0.15rem 0.5rem; font-size:0.72rem; border-color:{% if bill.is_paid %}#10b981{% else %}#3b82f6{% endif %}; color:{% if bill.is_paid %}#34d399{% else %}#60a5fa{% endif %};">
+                  {% if bill.is_paid %}✓ Paid{% else %}Pay{% endif %}
+                </button>
+              </form>
+              <form action="{{ url_for('delete_bill', bill_id=bill.id) }}" method="POST" style="margin:0;">
+                <input type="hidden" name="redirect_to" value="/finance">
+                <button type="submit" class="btn btn-outline btn-sm delete-confirm-btn" data-confirm-msg="Delete this bill?" style="padding:0.15rem 0.4rem; font-size:0.72rem; border-color:#2e1f26; color:#f43f5e;">
+                  &times;
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="padding:1.5rem; text-align:center; color:var(--text-subtle); font-size:0.85rem;">
+      No recurring bills recorded. Click "+ Record Bill" to add monthly overhead costs.
+    </div>
+  {% endif %}
+</div>
+
+<!-- MODAL: Add Transaction -->
+<div class="modal-overlay" id="addTransactionModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">Record Venture Transaction</h3>
+      <button class="modal-close" data-close-modal="addTransactionModal">&times;</button>
+    </div>
+    <form action="{{ url_for('add_transaction') }}" method="POST">
+      <input type="hidden" name="redirect_to" value="/finance">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Partner</label>
+            <select name="partner_id" class="form-select" required>
+              <option value="imran" {% if current_user and current_user.id == 'imran' %}selected{% endif %}>🟣 Imran</option>
+              <option value="mikiyas" {% if current_user and current_user.id == 'mikiyas' %}selected{% endif %}>🟢 Mikiyas</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" name="date" class="form-input" value="{{ today_str }}" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Transaction Type</label>
+            <select name="type" class="form-select" required>
+              <option value="Income">🟢 Income (Revenue Received)</option>
+              <option value="Expense">🔴 Expense (Operational Outlay)</option>
+              <option value="Savings">🔵 Savings (Deposit to Capital Reserve)</option>
+              <option value="Investment">🟣 Investment (Asset / Equipment)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount ($)</label>
+            <input type="number" step="0.01" min="0.01" name="amount" class="form-input" placeholder="0.00" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <input type="text" name="category" class="form-input" placeholder="e.g. Client Project, Software Tool, Domain, Growth Fund" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description / Reference Note</label>
+          <input type="text" name="note" class="form-input" placeholder="Optional details...">
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+          <button type="button" class="btn btn-secondary" data-close-modal="addTransactionModal">Cancel</button>
+          <button type="submit" class="btn btn-primary">+ Save Entry</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Add Bill -->
+<div class="modal-overlay" id="addBillModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">Record Recurring Bill</h3>
+      <button class="modal-close" data-close-modal="addBillModal">&times;</button>
+    </div>
+    <form action="{{ url_for('add_bill') }}" method="POST">
+      <input type="hidden" name="redirect_to" value="/finance">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Responsible Partner</label>
+            <select name="partner_id" class="form-select">
+              <option value="imran">🟣 Imran</option>
+              <option value="mikiyas">🟢 Mikiyas</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Obligation Name</label>
+            <input type="text" name="name" class="form-input" placeholder="e.g. Cloud Hosting, Domain Renewal" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Amount ($)</label>
+            <input type="number" step="0.01" min="0.01" name="amount" class="form-input" placeholder="0.00" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Due Date</label>
+            <input type="date" name="due_date" class="form-input" value="{{ today_str }}" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cadence</label>
+          <select name="recurring_interval" class="form-select">
+            <option value="Monthly">Monthly</option>
+            <option value="Weekly">Weekly</option>
+            <option value="Quarterly">Quarterly</option>
+            <option value="Yearly">Yearly</option>
+          </select>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+          <button type="button" class="btn btn-secondary" data-close-modal="addBillModal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Obligation</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Configure Venture Savings Target -->
+<div class="modal-overlay" id="editSavingsGoalModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">Configure Capital Reserve Target</h3>
+      <button class="modal-close" data-close-modal="editSavingsGoalModal">&times;</button>
+    </div>
+    <form action="{{ url_for('update_savings_goal') }}" method="POST">
+      <input type="hidden" name="redirect_to" value="/finance">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Reserve Target Name</label>
+          <input type="text" name="goal_name" class="form-input" value="Capital Growth Fund" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Amount ($)</label>
+          <input type="number" step="0.01" min="0" name="target_amount" class="form-input" value="{{ savings_target }}" required>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+          <button type="button" class="btn btn-secondary" data-close-modal="editSavingsGoalModal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Target</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
