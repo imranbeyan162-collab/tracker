@@ -1,24 +1,36 @@
 {
-  "name": "IMAKO Solution - Imran & Mikiyas",
+  "name": "IMAKO Solution",
   "short_name": "IMAKO",
-  "description": "Private venture tracking, goals architecture, and financial ledger for Imran & Mikiyas.",
+  "description": "Venture Management Platform for Imran & Mikiyas",
   "start_url": "/tasks",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#0b0f17",
-  "theme_color": "#111827",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "/static/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/static/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

@@ -1,12 +1,15 @@
-// Service Worker for Imran & Mikiyas Venture Management PWA
-const CACHE_NAME = 'venture-tracker-v1';
+// Service Worker for IMAKO Solution PWA
+const CACHE_NAME = 'imako-solution-v3';
 const ASSETS_TO_CACHE = [
   '/',
+  '/tasks',
   '/static/css/style.css',
-  '/static/js/main.js',
   '/static/manifest.json',
   '/static/icons/icon-192.png',
-  '/static/icons/icon-512.png'
+  '/static/icons/icon-512.png',
+  '/static/icons/icon-maskable-192.png',
+  '/static/icons/icon-maskable-512.png',
+  '/static/icons/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -34,7 +37,6 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network first, falling back to cache
   event.respondWith(
     fetch(event.request).catch(() => {
       return caches.match(event.request);
