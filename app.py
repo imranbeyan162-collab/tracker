@@ -248,6 +248,17 @@ def login():
     return handle_login_request()
 
 
+@app.errorhandler(404)
+def page_not_found(e):
+    return jsonify({
+        "error": "404 Not Found",
+        "path": request.path,
+        "full_path": request.full_path,
+        "environ_path_info": request.environ.get("PATH_INFO"),
+        "headers": {k: str(v) for k, v in request.environ.items() if k.startswith("HTTP_") or "URI" in k or "PATH" in k}
+    }), 404
+
+
 @app.route("/debug")
 def debug_endpoint():
     """Diagnostic endpoint to inspect environment and routing."""
