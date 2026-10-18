@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 
 # Guarantee Vercel / serverless environment flag is set
 os.environ["VERCEL"] = "1"
@@ -13,14 +14,27 @@ from app import app
 
 
 class VercelPathFix:
-    """
-    Translates Vercel Edge rewrite headers (HTTP_X_MATCHED_PATH, HTTP_X_FORWARDED_URI, etc.)
-    into standard WSGI PATH_INFO so Flask routes match the user's actual requested URL.
-    """
     def __init__(self, wsgi_app):
         self.wsgi_app = wsgi_app
 
     def __call__(self, environ, start_response):
+        # Direct WSGI diagnostic bypass: returns full environ as JSON
+        qs = environ.get("QUERY_STRING", "")
+        pi = environ.get("PATH_INFO", "")
+        if "debug_wsgi" in qs or "debug_wsgi" in pi:
+            status = "200 OK"
+            headers = [("Content-Type", "application/json")]
+            start_response(status, headers)
+            dump = json.dumps({
+                "PATH_INFO": environ.get("PATH_INFO"),
+                "SCRIPT_NAME": environ.get("SCRIPT_NAME"),
+                "REQUEST_METHOD": environ.get("REQUEST_METHOD"),
+                "QUERY_STRING": environ.get("QUERY_STRING"),
+                "all_keys": list(environ.keys()),
+                "http_headers": {k: str(v) for k, v in environ.items() if k.startswith("HTTP_") or "PATH" in k or "URI" in k or "VERCEL" in k}
+            }, indent=2)
+            return [dump.encode("utf-8")]
+
         path_candidate = None
 
         # Edge proxy headers providing the user's actual requested path
