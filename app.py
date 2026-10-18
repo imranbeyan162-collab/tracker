@@ -84,7 +84,10 @@ def require_authentication_gate():
         "/", "/index", "/login", "/login/", "/favicon.ico", "/manifest.json", "/sw.js",
         "/api/index", "/api/index/", "/api/index.py", "/debug"
     )
-    if request.path in allowed_exact or request.endpoint in ("login", "debug_endpoint", "index"):
+    if (
+        request.path in allowed_exact
+        or request.endpoint in ("login", "debug_endpoint", "index", "vercel_entrypoint_dispatcher")
+    ):
         return None
 
     # Dual-redundancy: Check signed session cookie or persistent partner cookie
@@ -1227,6 +1230,93 @@ def combined_view():
 @app.route("/settings")
 def settings_view():
     return render_template("settings.html", active_page="settings")
+
+
+# ============================================================================
+# Vercel Serverless Master Endpoint Dispatcher
+# ============================================================================
+
+@app.route("/api/index", methods=["GET", "POST"])
+@app.route("/api/index.py", methods=["GET", "POST"])
+def vercel_entrypoint_dispatcher():
+    """
+    Direct dispatcher for Vercel rewrites: /(.*) -> /api/index.py?path=$1
+    Dispatches to the corresponding view function based on the ?path= parameter.
+    """
+    raw_path = request.args.get("path", "").strip()
+    if not raw_path:
+        for h in ("X-Matched-Path", "X-Forwarded-Uri", "X-Vercel-Forwarded-Path", "X-Real-Path"):
+            val = request.headers.get(h, "")
+            if val and val not in ("/api/index", "/api/index.py"):
+                raw_path = val
+                break
+
+    clean_path = raw_path.strip("/")
+
+    if not clean_path or clean_path in ("index", ""):
+        return index()
+    elif clean_path == "login":
+        return login()
+    elif clean_path == "logout":
+        return logout()
+    elif clean_path in ("tasks", "tasks/"):
+        return tasks_board()
+    elif clean_path in ("tasks/add", "tasks/quick-add"):
+        return add_task()
+    elif clean_path.startswith("tasks/toggle/"):
+        try:
+            task_id = int(clean_path.split("/")[-1])
+            return toggle_task_done(task_id)
+        except Exception:
+            return redirect(url_for("tasks_board"))
+    elif clean_path.startswith("tasks/delete/"):
+        try:
+            task_id = int(clean_path.split("/")[-1])
+            return delete_task(task_id)
+        except Exception:
+            return redirect(url_for("tasks_board"))
+    elif clean_path.startswith("tasks/verify-proof/"):
+        try:
+            task_id = int(clean_path.split("/")[-1])
+            return verify_task_proof(task_id)
+        except Exception:
+            return redirect(url_for("tasks_board"))
+    elif clean_path.startswith("tasks/"):
+        sub = clean_path.split("/")[-1]
+        return tasks_view(sub)
+    elif clean_path == "goals":
+        return goals_view()
+    elif clean_path == "goals/add":
+        return add_goal()
+    elif clean_path.startswith("goals/toggle/"):
+        try:
+            goal_id = int(clean_path.split("/")[-1])
+            return toggle_goal(goal_id)
+        except Exception:
+            return redirect(url_for("goals_view"))
+    elif clean_path.startswith("goals/delete/"):
+        try:
+            goal_id = int(clean_path.split("/")[-1])
+            return delete_goal(goal_id)
+        except Exception:
+            return redirect(url_for("goals_view"))
+    elif clean_path in ("finance", "money", "save"):
+        return finance_view()
+    elif clean_path.startswith("partner/"):
+        p_id = clean_path.split("/")[-1]
+        return partner_space(p_id)
+    elif clean_path in ("imran", "mikiyas"):
+        return partner_space(clean_path)
+    elif clean_path == "switch-partner":
+        return switch_partner()
+    elif clean_path == "change-pin":
+        return change_pin()
+    elif clean_path == "settings":
+        return settings_view()
+    elif clean_path == "debug":
+        return debug_endpoint()
+    else:
+        return index()
 
 
 # ============================================================================
