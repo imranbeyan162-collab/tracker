@@ -1229,5 +1229,46 @@ def settings_view():
     return render_template("settings.html", active_page="settings")
 
 
+# ============================================================================
+# Vercel Serverless WSGI Path Normalization Middleware
+# ============================================================================
+
+class VercelPathFix:
+    """
+    Translates Vercel Edge rewrite headers (HTTP_X_MATCHED_PATH, HTTP_X_FORWARDED_URI, etc.)
+    into standard WSGI PATH_INFO so Flask routes match the user's actual requested URL.
+    """
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        path_candidate = None
+
+        # Check edge proxy headers in priority order
+        for header_key in (
+            "HTTP_X_MATCHED_PATH",
+            "HTTP_X_FORWARDED_URI",
+            "HTTP_X_VERCEL_FORWARDED_PATH",
+            "HTTP_X_REAL_PATH",
+            "REQUEST_URI",
+        ):
+            raw = environ.get(header_key, "")
+            if raw:
+                clean = raw.split("?")[0].strip()
+                if clean and clean not in ("/api/index", "/api/index.py", "/api/index/", "/api", "/app"):
+                    path_candidate = clean if clean.startswith("/") else "/" + clean
+                    break
+
+        if path_candidate:
+            environ["PATH_INFO"] = path_candidate
+        elif environ.get("PATH_INFO", "") in ("/api/index", "/api/index.py", "/api/index/", "/api", "/app"):
+            environ["PATH_INFO"] = "/"
+
+        return self.wsgi_app(environ, start_response)
+
+
+app.wsgi_app = VercelPathFix(app.wsgi_app)
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=False)
