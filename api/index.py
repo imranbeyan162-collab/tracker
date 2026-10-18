@@ -23,18 +23,24 @@ class VercelPathFix:
     def __call__(self, environ, start_response):
         path_candidate = None
 
-        # Check edge proxy headers in priority order
-        for header_key in ("HTTP_X_MATCHED_PATH", "HTTP_X_FORWARDED_URI", "HTTP_X_REAL_PATH", "REQUEST_URI"):
+        # Edge proxy headers providing the user's actual requested path
+        for header_key in (
+            "HTTP_X_MATCHED_PATH",
+            "HTTP_X_FORWARDED_URI",
+            "HTTP_X_VERCEL_FORWARDED_PATH",
+            "HTTP_X_REAL_PATH",
+            "REQUEST_URI",
+        ):
             raw = environ.get(header_key, "")
             if raw:
-                clean = raw.split("?")[0]
+                clean = raw.split("?")[0].strip()
                 if clean and clean not in ("/api/index", "/api/index.py", "/api/index/", "/api"):
                     path_candidate = clean if clean.startswith("/") else "/" + clean
                     break
 
         if path_candidate:
             environ["PATH_INFO"] = path_candidate
-        elif environ.get("PATH_INFO", "") in ("/api/index", "/api/index.py", "/api/index/"):
+        elif environ.get("PATH_INFO", "") in ("/api/index", "/api/index.py", "/api/index/", "/api"):
             environ["PATH_INFO"] = "/"
 
         return self.wsgi_app(environ, start_response)
