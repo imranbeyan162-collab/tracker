@@ -1,6 +1,6 @@
 import os
 import sys
-import json
+import urllib.parse
 
 # Guarantee Vercel / serverless environment flag is set
 os.environ["VERCEL"] = "1"
@@ -14,48 +14,52 @@ from app import app
 
 
 class VercelPathFix:
+    """
+    Translates Vercel Edge rewrites (?path=$1 and edge headers) into standard WSGI PATH_INFO
+    so Flask routes match the user's actual requested URL.
+    """
     def __init__(self, wsgi_app):
         self.wsgi_app = wsgi_app
 
     def __call__(self, environ, start_response):
-        # Direct WSGI diagnostic bypass: returns full environ as JSON
         qs = environ.get("QUERY_STRING", "")
-        pi = environ.get("PATH_INFO", "")
-        if "debug_wsgi" in qs or "debug_wsgi" in pi:
-            status = "200 OK"
-            headers = [("Content-Type", "application/json")]
-            start_response(status, headers)
-            dump = json.dumps({
-                "PATH_INFO": environ.get("PATH_INFO"),
-                "SCRIPT_NAME": environ.get("SCRIPT_NAME"),
-                "REQUEST_METHOD": environ.get("REQUEST_METHOD"),
-                "QUERY_STRING": environ.get("QUERY_STRING"),
-                "all_keys": list(environ.keys()),
-                "http_headers": {k: str(v) for k, v in environ.items() if k.startswith("HTTP_") or "PATH" in k or "URI" in k or "VERCEL" in k}
-            }, indent=2)
-            return [dump.encode("utf-8")]
-
+        params = urllib.parse.parse_qs(qs)
+        
         path_candidate = None
 
-        # Edge proxy headers providing the user's actual requested path
-        for header_key in (
-            "HTTP_X_MATCHED_PATH",
-            "HTTP_X_FORWARDED_URI",
-            "HTTP_X_VERCEL_FORWARDED_PATH",
-            "HTTP_X_REAL_PATH",
-            "REQUEST_URI",
-        ):
-            raw = environ.get(header_key, "")
-            if raw:
-                clean = raw.split("?")[0].strip()
-                if clean and clean not in ("/api/index", "/api/index.py", "/api/index/", "/api"):
-                    path_candidate = clean if clean.startswith("/") else "/" + clean
-                    break
+        # 1. Check query parameter passed from vercel.json rewrite: ?path=$1
+        if "path" in params and params["path"]:
+            p = params["path"][0]
+            if p:
+                path_candidate = p if p.startswith("/") else "/" + p
+            else:
+                path_candidate = "/"
+                
+        # 2. Check Vercel edge headers
+        if not path_candidate or path_candidate in ("/api/index", "/api/index.py", "/api/index/", "/api"):
+            for header_key in (
+                "HTTP_X_MATCHED_PATH",
+                "HTTP_X_FORWARDED_URI",
+                "HTTP_X_VERCEL_FORWARDED_PATH",
+                "HTTP_X_REAL_PATH",
+                "REQUEST_URI",
+            ):
+                h_val = environ.get(header_key, "")
+                if h_val:
+                    clean = h_val.split("?")[0].strip()
+                    if clean and clean not in ("/api/index", "/api/index.py", "/api/index/", "/api"):
+                        path_candidate = clean if clean.startswith("/") else "/" + clean
+                        break
 
         if path_candidate:
             environ["PATH_INFO"] = path_candidate
         elif environ.get("PATH_INFO", "") in ("/api/index", "/api/index.py", "/api/index/", "/api"):
             environ["PATH_INFO"] = "/"
+
+        # Remove internal ?path= from QUERY_STRING so Flask request.args is clean
+        if "path" in params:
+            clean_params = {k: v for k, v in params.items() if k != "path"}
+            environ["QUERY_STRING"] = urllib.parse.urlencode(clean_params, doseq=True)
 
         return self.wsgi_app(environ, start_response)
 

@@ -1235,34 +1235,52 @@ def settings_view():
 
 class VercelPathFix:
     """
-    Translates Vercel Edge rewrite headers (HTTP_X_MATCHED_PATH, HTTP_X_FORWARDED_URI, etc.)
-    into standard WSGI PATH_INFO so Flask routes match the user's actual requested URL.
+    Translates Vercel Edge rewrites (?path=$1 and edge headers) into standard WSGI PATH_INFO
+    so Flask routes match the user's actual requested URL.
     """
     def __init__(self, wsgi_app):
         self.wsgi_app = wsgi_app
 
     def __call__(self, environ, start_response):
+        import urllib.parse
+        qs = environ.get("QUERY_STRING", "")
+        params = urllib.parse.parse_qs(qs)
+        
         path_candidate = None
 
-        # Check edge proxy headers in priority order
-        for header_key in (
-            "HTTP_X_MATCHED_PATH",
-            "HTTP_X_FORWARDED_URI",
-            "HTTP_X_VERCEL_FORWARDED_PATH",
-            "HTTP_X_REAL_PATH",
-            "REQUEST_URI",
-        ):
-            raw = environ.get(header_key, "")
-            if raw:
-                clean = raw.split("?")[0].strip()
-                if clean and clean not in ("/api/index", "/api/index.py", "/api/index/", "/api", "/app"):
-                    path_candidate = clean if clean.startswith("/") else "/" + clean
-                    break
+        # 1. Check query parameter passed from vercel.json rewrite: ?path=$1
+        if "path" in params and params["path"]:
+            p = params["path"][0]
+            if p:
+                path_candidate = p if p.startswith("/") else "/" + p
+            else:
+                path_candidate = "/"
+
+        # 2. Check edge proxy headers in priority order
+        if not path_candidate or path_candidate in ("/api/index", "/api/index.py", "/api/index/", "/api", "/app"):
+            for header_key in (
+                "HTTP_X_MATCHED_PATH",
+                "HTTP_X_FORWARDED_URI",
+                "HTTP_X_VERCEL_FORWARDED_PATH",
+                "HTTP_X_REAL_PATH",
+                "REQUEST_URI",
+            ):
+                raw = environ.get(header_key, "")
+                if raw:
+                    clean = raw.split("?")[0].strip()
+                    if clean and clean not in ("/api/index", "/api/index.py", "/api/index/", "/api", "/app"):
+                        path_candidate = clean if clean.startswith("/") else "/" + clean
+                        break
 
         if path_candidate:
             environ["PATH_INFO"] = path_candidate
         elif environ.get("PATH_INFO", "") in ("/api/index", "/api/index.py", "/api/index/", "/api", "/app"):
             environ["PATH_INFO"] = "/"
+
+        # Remove internal ?path= from QUERY_STRING so Flask request.args is clean
+        if "path" in params:
+            clean_params = {k: v for k, v in params.items() if k != "path"}
+            environ["QUERY_STRING"] = urllib.parse.urlencode(clean_params, doseq=True)
 
         return self.wsgi_app(environ, start_response)
 
