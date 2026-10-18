@@ -27,9 +27,9 @@
   </div>
 </div>
 
-<!-- Linear-Style Task Quick Add Bar -->
 <div class="task-quick-add">
   <form action="{{ url_for('add_task') }}" method="POST">
+    <input type="hidden" name="redirect_to" value="{{ request.full_path if request.full_path and not request.full_path.startswith('/tasks/add') else url_for('tasks_board') }}">
     <div class="task-add-input-row">
       <input type="text" name="title" class="task-main-input" placeholder="Type a new task and press Enter (e.g., Deliver website to client, Call 5 leads)..." required autofocus autocomplete="off">
     </div>
@@ -100,6 +100,7 @@
       <div class="cool-task-card {% if task.is_done %}is-done{% endif %}">
         <div class="cool-task-left">
           <form action="{{ url_for('toggle_task_done', task_id=task.id) }}" method="POST" style="margin:0; display:flex; align-items:center;">
+            <input type="hidden" name="redirect_to" value="{{ request.full_path if request.full_path and not request.full_path.startswith('/tasks/toggle') else url_for('tasks_board') }}">
             <input type="checkbox" class="cool-task-checkbox" {% if task.is_done %}checked{% endif %} onchange="this.form.submit()" title="Click to mark done / undone">
           </form>
 
@@ -144,6 +145,7 @@
         <!-- Task Actions -->
         <div style="display:flex; align-items:center; gap:0.5rem;">
           <form action="{{ url_for('delete_task', task_id=task.id) }}" method="POST" style="margin:0;">
+            <input type="hidden" name="redirect_to" value="{{ request.full_path if request.full_path and not request.full_path.startswith('/tasks/delete') else url_for('tasks_board') }}">
             <button type="submit" class="btn btn-outline btn-sm delete-confirm-btn" data-confirm-msg="Delete this task?" style="padding:0.25rem 0.6rem; font-size:0.75rem; border-color:#2a374f; color:#94a3b8;">
               Delete
             </button>

@@ -17,7 +17,7 @@ from database.db import (
     get_db_connection, init_db, check_and_apply_penalties,
     calculate_task_streak, get_user_financial_totals, get_chart_data,
     get_private_goals, get_private_tasks, get_all_categorized_goals,
-    get_workspace_tasks
+    get_workspace_tasks, sync_db
 )
 from ai_verifier import verify_goal_evidence
 
@@ -329,8 +329,6 @@ def change_pin():
 
 @app.route("/")
 @app.route("/index")
-@app.route("/api/index", methods=["GET", "POST"])
-@app.route("/api/index.py", methods=["GET", "POST"])
 def index():
     if not (session.get("logged_in_user") or request.cookies.get("partner_user")):
         return handle_login_request()
@@ -538,20 +536,27 @@ def tasks_board():
 @app.route("/tasks/<partner_id>")
 def tasks_view(partner_id):
     """Alias pointing to partner-specific tasks filter."""
-    return redirect(url_for("tasks_board", tab=partner_id))
+    if partner_id in ("imran", "mikiyas", "shared", "today", "all", "completed"):
+        return redirect(url_for("tasks_board", tab=partner_id))
+    return redirect(url_for("tasks_board"))
 
 
-@app.route("/tasks/add", methods=["POST"])
-@app.route("/tasks/quick-add", methods=["POST"])
+@app.route("/tasks/add", methods=["GET", "POST"])
+@app.route("/tasks/quick-add", methods=["GET", "POST"])
 def add_task():
     """Ultra-fast Linear-style task adder."""
+    if request.method == "GET":
+        return redirect(url_for("tasks_board"))
+
     viewer_id = session.get("logged_in_user", "imran")
     title = request.form.get("title", "").strip()
     assigned_to = request.form.get("assigned_to", "shared")
     due_date = request.form.get("due_date", date.today().strftime("%Y-%m-%d")).strip()
     priority = request.form.get("priority", "Normal")
     details = request.form.get("details", "").strip()
-    redirect_to = request.form.get("redirect_to") or request.referrer or url_for("tasks_board")
+    redirect_to = request.form.get("redirect_to")
+    if not redirect_to or redirect_to.startswith("/tasks/add") or redirect_to.startswith("/tasks/quick-add"):
+        redirect_to = url_for("tasks_board")
 
     today = date.today()
     week_identifier = f"{today.year}-W{today.isocalendar()[1]:02d}"
@@ -577,7 +582,9 @@ def add_task():
 
 @app.route("/tasks/toggle/<int:task_id>", methods=["POST"])
 def toggle_task_done(task_id):
-    redirect_to = request.form.get("redirect_to") or request.referrer or url_for("tasks_board")
+    redirect_to = request.form.get("redirect_to")
+    if not redirect_to or "/tasks/toggle" in redirect_to:
+        redirect_to = url_for("tasks_board")
     today_str = date.today().strftime("%Y-%m-%d")
 
     conn = get_db_connection()
@@ -655,7 +662,9 @@ def verify_task_proof(task_id):
 
 @app.route("/tasks/delete/<int:task_id>", methods=["POST"])
 def delete_task(task_id):
-    redirect_to = request.form.get("redirect_to") or request.referrer or url_for("tasks_board")
+    redirect_to = request.form.get("redirect_to")
+    if not redirect_to or "/tasks/delete" in redirect_to:
+        redirect_to = url_for("tasks_board")
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))

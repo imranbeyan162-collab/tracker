@@ -5,6 +5,7 @@ Handles SQLite connection, schema definition, strict privacy filters, and AI pro
 
 import sqlite3
 import os
+import time
 from datetime import datetime, date, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -21,24 +22,61 @@ if is_serverless:
     DB_DIR = "/tmp"
     DB_PATH = os.path.join(DB_DIR, "partner_tracker.db")
     repo_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "partner_tracker.db")
-    if not os.path.exists(DB_PATH) and os.path.exists(repo_db):
-        try:
-            import shutil
-            shutil.copyfile(repo_db, DB_PATH)
-            try:
-                os.chmod(DB_PATH, 0o666)
-            except Exception:
-                pass
-        except Exception:
-            pass
 else:
     DB_DIR = os.path.dirname(os.path.abspath(__file__))
     DB_PATH = os.path.join(DB_DIR, "partner_tracker.db")
+    repo_db = DB_PATH
+
+_last_db_check = 0
+_CHECK_INTERVAL = 15  # seconds cooldown for checking remote DB
+
+
+def sync_db():
+    """Push the current local DB to GitHub so changes persist across serverless instances."""
+    if not is_serverless:
+        return
+    try:
+        from database.github_sync import push_db_to_github
+        push_db_to_github(DB_PATH)
+    except Exception as e:
+        print(f"[db] GitHub push skipped: {e}")
+
+
+class SyncedConnection(sqlite3.Connection):
+    """SQLite connection that automatically persists changes to GitHub when running on serverless."""
+    def commit(self):
+        super().commit()
+        if is_serverless:
+            sync_db()
 
 
 def get_db_connection():
-    """Returns an active SQLite connection with row factory enabled."""
-    conn = sqlite3.connect(DB_PATH)
+    """Returns an active SQLite connection with row factory enabled and auto-persistence."""
+    global _last_db_check
+    if is_serverless:
+        now = time.time()
+        # If DB doesn't exist locally, or it's been more than 15s since last sync check
+        if not os.path.exists(DB_PATH) or (now - _last_db_check > _CHECK_INTERVAL):
+            try:
+                from database.github_sync import fetch_db_from_github
+                if fetch_db_from_github(DB_PATH):
+                    _last_db_check = now
+            except Exception as e:
+                print(f"[db] Sync fetch failed: {e}")
+
+        # Fallback: copy bundled seed DB if GitHub fetch failed and local DB doesn't exist
+        if not os.path.exists(DB_PATH) and os.path.exists(repo_db):
+            try:
+                import shutil
+                shutil.copyfile(repo_db, DB_PATH)
+                try:
+                    os.chmod(DB_PATH, 0o666)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+    conn = sqlite3.connect(DB_PATH, factory=SyncedConnection)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn

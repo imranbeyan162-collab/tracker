@@ -1,6 +1,5 @@
 import os
 import sys
-import urllib.parse
 
 # Guarantee Vercel / serverless environment flag is set
 os.environ["VERCEL"] = "1"
@@ -12,43 +11,33 @@ if parent_dir not in sys.path:
 
 from app import app
 
+
 class VercelPathFix:
     """
-    Translates Vercel rewrite or proxy headers into standard WSGI PATH_INFO
-    so Flask routes match the user's actual requested URL.
+    Translates Vercel Edge rewrite headers (HTTP_X_MATCHED_PATH, HTTP_X_FORWARDED_URI, etc.)
+    into standard WSGI PATH_INFO so Flask routes match the user's actual requested URL.
     """
     def __init__(self, wsgi_app):
         self.wsgi_app = wsgi_app
 
     def __call__(self, environ, start_response):
-        qs = environ.get("QUERY_STRING", "")
-        params = urllib.parse.parse_qs(qs)
-        
         path_candidate = None
-        
-        # 1. Check query parameter passed from vercel.json rewrite: ?path=$1
-        if "path" in params and params["path"]:
-            p = params["path"][0]
-            if p:
-                path_candidate = p if p.startswith("/") else "/" + p
-            else:
-                path_candidate = "/"
-                
-        # 2. Check Vercel edge matched path or forwarded uri headers
-        if not path_candidate or path_candidate in ("/api/index", "/api/index.py", "/api/index/"):
-            for header_key in ("HTTP_X_MATCHED_PATH", "HTTP_X_FORWARDED_URI", "REQUEST_URI", "HTTP_X_REAL_PATH"):
-                h_val = environ.get(header_key, "")
-                if h_val:
-                    clean = h_val.split("?")[0]
-                    if clean and clean not in ("/api/index", "/api/index.py", "/api/index/"):
-                        path_candidate = clean
-                        break
+
+        # Check edge proxy headers in priority order
+        for header_key in ("HTTP_X_MATCHED_PATH", "HTTP_X_FORWARDED_URI", "HTTP_X_REAL_PATH", "REQUEST_URI"):
+            raw = environ.get(header_key, "")
+            if raw:
+                clean = raw.split("?")[0]
+                if clean and clean not in ("/api/index", "/api/index.py", "/api/index/", "/api"):
+                    path_candidate = clean if clean.startswith("/") else "/" + clean
+                    break
 
         if path_candidate:
             environ["PATH_INFO"] = path_candidate
         elif environ.get("PATH_INFO", "") in ("/api/index", "/api/index.py", "/api/index/"):
             environ["PATH_INFO"] = "/"
-            
+
         return self.wsgi_app(environ, start_response)
+
 
 app.wsgi_app = VercelPathFix(app.wsgi_app)
